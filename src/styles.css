@@ -16,6 +16,7 @@
 .diagnostic-fallback { padding:0 15px 10px; }
 .diagnostic-fallback label { display:block; color:var(--muted); font-size:10px; margin:7px 0; }
 .diagnostic-fallback textarea { display:block; width:100%; height:105px; resize:vertical; background:#090d16; border:1px solid var(--border); border-radius:7px; color:var(--text); padding:8px; font:10px/1.5 var(--mono); }
+.field>.field-error { color:var(--danger); line-height:1.5; }
 .log-content { min-height:70px; }
 
 .table-btn { background: #ffffff08; border: 1px solid #ffffff15; color: #a9bdd3; border-radius: 6px; padding: 5px 8px; margin-right: 5px; cursor: pointer; font: inherit; }

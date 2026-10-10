@@ -26,6 +26,7 @@
 .diagnostic-fallback { padding:0 15px 10px; }
 .diagnostic-fallback label { display:block; color:var(--muted); font-size:10px; margin:7px 0; }
 .diagnostic-fallback textarea { display:block; width:100%; height:105px; resize:vertical; background:#090d16; border:1px solid var(--border); border-radius:7px; color:var(--text); padding:8px; font:10px/1.5 var(--mono); }
+.field>.field-error { color:var(--danger); line-height:1.5; }
 .log-content { min-height:70px; }
 
 .table-btn { background: #ffffff08; border: 1px solid #ffffff15; color: #a9bdd3; border-radius: 6px; padding: 5px 8px; margin-right: 5px; cursor: pointer; font: inherit; }
@@ -448,8 +449,9 @@ function validateOptions(options, kind) {
   if (![1, 4, 8].includes(streams)) throw new TypeError('streams must be 1, 4, or 8');
   if (![5, 10, 20].includes(duration)) throw new TypeError('duration must be 5, 10, or 20 seconds');
   if (![5, 15, 30].includes(monitorMinutes)) throw new TypeError('monitorMinutes must be 5, 15, or 30');
-  const budgetBytes = positiveNumber(options.budgetBytes, 200 * 1024 * 1024, 'budgetBytes');
-  if (!Number.isSafeInteger(budgetBytes)) throw new TypeError('budgetBytes must be a positive safe integer');
+  const budgetBytes = options.budgetBytes === null
+    ? null : positiveNumber(options.budgetBytes, 1_000_000_000, 'budgetBytes');
+  if (budgetBytes !== null && !Number.isSafeInteger(budgetBytes)) throw new TypeError('budgetBytes must be a positive safe integer or null');
   const probeIntervalMs = positiveNumber(options.probeIntervalMs, 1000, 'probeIntervalMs');
   return {
     streams, duration, monitorMinutes, budgetBytes, probeIntervalMs,
@@ -559,9 +561,12 @@ class SpeedTestEngine {
       }
       // Reserve an independent half for each direction, so a fast download does
       // not consume the entire upload allowance before upload even begins.
-      const downloadAllowance = Math.floor(context.options.budgetBytes / 2);
+      // An explicit null disables the cap; only internal allowances use Infinity.
+      const capped = context.options.budgetBytes !== null;
+      const downloadAllowance = capped ? Math.floor(context.options.budgetBytes / 2) : Infinity;
+      const uploadAllowance = capped ? context.options.budgetBytes - downloadAllowance : Infinity;
       if (!controller.signal.aborted) await this._transfer(context, 'download', downloadAllowance);
-      if (!controller.signal.aborted) await this._transfer(context, 'upload', context.options.budgetBytes - downloadAllowance);
+      if (!controller.signal.aborted) await this._transfer(context, 'upload', uploadAllowance);
       const phases = [result.download, result.upload];
       const measured = phases.some(phase => phase.mbps !== null);
       const latencyMeasured = result.latency.idle.some(sample => sample.ms !== null);
@@ -709,7 +714,8 @@ class SpeedTestEngine {
 
   _reserve(context, phase, requested, allowanceRemaining) {
     const budget = context.result.budget;
-    const bytes = Math.max(0, Math.floor(Math.min(requested, allowanceRemaining, budget.limitBytes - budget.usedBytes)));
+    const remaining = budget.limitBytes === null ? Infinity : budget.limitBytes - budget.usedBytes;
+    const bytes = Math.max(0, Math.floor(Math.min(requested, allowanceRemaining, remaining)));
     if (bytes > 0) {
       budget.usedBytes += bytes;
       this._emit({ type: 'budget', phase, ...budget });
@@ -854,6 +860,9 @@ const { SpeedTestEngine } = __modules.engine;
 const { HistoryStore, summarizeLatency, summarizeResult, compareResults, toCSV } = __modules.data;
 const $ = id => document.getElementById(id);
 const APP_VERSION = $('appVersion').getAttribute('data-version');
+const PREFERENCES_KEY = 'velocity.preferences.v1';
+const budgetChoices = new Set(['50','250','1000','5000','10000','custom','none']);
+let lastValidCustomBudget = '1000';
 const number = (value, digits = 1) => Number.isFinite(value) ? value.toFixed(digits) : '—';
 const set = (id, value) => { $(id).textContent = value; };
 const colors = {download:'#29d3df', upload:'#b997ff', idle:'#f6be66', monitor:'#40d8ac'};
@@ -1093,10 +1102,60 @@ function capabilities(result,s) {
   set('cloudScore',valid&&Number.isFinite(up)?`${number(up/8)} MB/s upload`:'Not assessed');
 }
 
+function customBudgetBytes(value) {
+  const megabytes=Number(value);
+  const bytes=Math.round(megabytes*1e6);
+  if(!Number.isFinite(megabytes)||megabytes<=0||!Number.isSafeInteger(bytes)||bytes<=0) {
+    throw new RangeError('Enter a positive budget in MB.');
+  }
+  return bytes;
+}
+
+function selectedBudgetBytes() {
+  const selection=$('budget').value;
+  if(selection==='none')return null;
+  return customBudgetBytes(selection==='custom'?$('customBudget').value:selection);
+}
+
+function restoreBudgetPreferences() {
+  try {
+    const preference=JSON.parse(globalThis.localStorage?.getItem(PREFERENCES_KEY) || 'null');
+    if(!preference || !budgetChoices.has(preference.budget))return;
+    if(preference.customMB!==undefined) {
+      customBudgetBytes(preference.customMB);
+      lastValidCustomBudget=String(preference.customMB);
+      $('customBudget').value=lastValidCustomBudget;
+    }
+    $('budget').value=preference.budget;
+  } catch { /* Blocked or malformed preferences leave the default available. */ }
+}
+
+function saveBudgetPreferences() {
+  try {customBudgetBytes($('customBudget').value);lastValidCustomBudget=$('customBudget').value;}
+  catch { /* Preserve the last valid custom amount while the field is being edited. */ }
+  try {
+    globalThis.localStorage?.setItem(PREFERENCES_KEY,JSON.stringify({budget:$('budget').value,customMB:lastValidCustomBudget}));
+  } catch { /* Preferences are optional; a test never depends on storage. */ }
+}
+
+function budgetControls() {
+  const custom=$('budget').value==='custom'&&$('mode').value!=='monitor';
+  $('customBudgetField').hidden=!custom;
+  $('customBudget').disabled=busy||!custom;
+  $('customBudget').required=custom;
+  $('budgetError').hidden=true;
+  $('customBudget').removeAttribute('aria-invalid');
+}
+
 function setBudget(budget) {
-  const used=budget?.usedBytes || 0,limit=budget?.limitBytes || Number($('budget').value)*1e6;
-  set('budgetUsed',`${number(used/1e6)} MB`);set('budgetLimit',`${number(limit/1e6,0)} MB`);
-  $('budgetProgress').max=limit; $('budgetProgress').value=used;
+  const used=Number.isFinite(budget?.usedBytes)?budget.usedBytes:0;
+  let limit;
+  if(budget&&Object.prototype.hasOwnProperty.call(budget,'limitBytes'))limit=budget.limitBytes;
+  else {try {limit=selectedBudgetBytes();} catch {limit=undefined;}}
+  set('budgetUsed',`${number(used/1e6)} MB`);set('budgetLimit',limit===null?'No cap':`${number(limit/1e6,0)} MB`);
+  const finite=Number.isFinite(limit)&&limit>0;
+  $('budgetProgress').hidden=!finite;
+  $('budgetProgress').max=finite?limit:1; $('budgetProgress').value=finite?Math.min(used,limit):0;
 }
 
 function event(event) {
@@ -1144,10 +1203,11 @@ function controls() {
   const mode=$('mode').value;
   $('monitorField').hidden=mode!=='monitor';
   for(const id of ['durationField','streamsField','budgetField'])if($(id))$(id).hidden=mode==='monitor';
-  set('modeHelp',mode==='compare'?'Runs 1 stream, then your selected multiple-stream setting. The total payload budget is shared equally between both runs.':mode==='monitor'?'Lightweight HTTP probes for 5–30 minutes. Keep this tab visible and your device awake.':'Measures idle latency, then download and upload with simultaneous latency probes.');
+  set('modeHelp',mode==='compare'?`Runs 1 stream, then your selected multiple-stream setting. ${$('budget').value==='none'?'Each run uses the selected transfer duration.':'The total payload budget is shared equally between both runs.'}`:mode==='monitor'?'Lightweight HTTP probes for 5–30 minutes. Keep this tab visible and your device awake.':'Measures idle latency, then download and upload with simultaneous latency probes.');
   set('startBtn',mode==='compare'?'Compare streams':mode==='monitor'?'Start monitoring':'Start speed test');
   if(mode==='compare'&&$('streams').value==='1')$('streams').value='4';
   const single=$('streams').querySelector('option[value="1"]');if(single)single.disabled=mode==='compare';
+  budgetControls();
   setBudget(null);
 }
 
@@ -1155,20 +1215,31 @@ function setBusy(value) {
   busy=value;
   $('settings').querySelectorAll('input,select,button[type="submit"]').forEach(el=>el.disabled=value);
   $('stopBtn').disabled=!value;$('resetBtn').disabled=value;$('clearHistory').disabled=value;
+  budgetControls();
   set('statusBadge',value?'RUNNING':'READY');
 }
 
 async function start(e) {
   e.preventDefault();if(busy)return;
+  const mode=$('mode').value;
+  let budgetBytes;
+  try {
+    budgetBytes=mode==='monitor'?null:selectedBudgetBytes();
+    if(mode==='compare'&&budgetBytes!==null&&budgetBytes<2)throw new RangeError('Enter at least 0.000002 MB for two comparison runs.');
+  }
+  catch(error) {
+    set('budgetError',error.message);$('budgetError').hidden=false;
+    $('customBudget').setAttribute('aria-invalid','true');$('customBudget').focus();return;
+  }
+  saveBudgetPreferences();
   stopRequested=false;current=null;setBusy(true);tone();
   $('runtimeIssue').hidden = true;
   let executionFailed = false;
-  const mode=$('mode').value;
-  const options={duration:Number($('duration').value),streams:Number($('streams').value),budgetBytes:Number($('budget').value)*1e6,label:$('label').value.trim(),monitorMinutes:Number($('monitorMinutes').value),probeIntervalMs:mode==='monitor'?1000:400};
+  const options={duration:Number($('duration').value),streams:Number($('streams').value),budgetBytes,label:$('label').value.trim(),monitorMinutes:Number($('monitorMinutes').value),probeIntervalMs:mode==='monitor'?1000:400};
   activeRun = {startedAt:new Date().toISOString(),mode,options:{...options}};
   const sequence=mode==='compare'?[1,options.streams]:[options.streams];
   const pair=[];
-  if(mode==='compare')options.budgetBytes=Math.floor(options.budgetBytes/2);
+  if(mode==='compare'&&options.budgetBytes!==null)options.budgetBytes=Math.floor(options.budgetBytes/2);
   try {
     for(const streams of sequence) {
       if(stopRequested)break;
@@ -1271,7 +1342,9 @@ function renderComparison() {
 }
 
 $('settings').addEventListener('submit',start);
-$('mode').addEventListener('change',controls);$('budget').addEventListener('change',()=>setBudget(null));
+$('mode').addEventListener('change',controls);
+$('budget').addEventListener('change',()=>{controls();saveBudgetPreferences();});
+$('customBudget').addEventListener('input',()=>{budgetControls();setBudget(null);saveBudgetPreferences();});
 $('stopBtn').addEventListener('click',()=>{stopRequested=true;engine.stop('user');$('stopBtn').disabled=true;set('statusText','Stopping active requests…');});
 $('resetBtn').addEventListener('click',()=>{if(busy)return;current=null;clearReadings();$('monitorSummary').hidden=true;gauge(0,'Mbps','READY','Choose a test to begin');set('statusBadge','READY');set('statusText','Ready to measure');});
 $('soundToggle').addEventListener('click',()=>{audible=!audible;$('soundToggle').setAttribute('aria-pressed',String(audible));$('soundToggle').textContent=audible?'Sound on':'Sound off';tone();});
@@ -1294,7 +1367,7 @@ window.addEventListener('offline',()=>log('Browser reports offline. Probes will 
 window.addEventListener('online',()=>log('Browser reports connectivity restored.'));
 window.addEventListener('resize',()=>{for(const [id,{series,options}] of plots)plot(id,series,options);});
 window.addEventListener('storage',()=>{if(!busy){history=store.load();renderHistory();}});
-controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
+restoreBudgetPreferences();controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
 log(`Velocity ${APP_VERSION} ready. No measurements or external requests until you start a test.`);
 const pageProtocol=globalThis.location?.protocol || 'unavailable';
 $('localFileNotice').hidden=!['file:','content:','data:','blob:'].includes(pageProtocol);
@@ -1338,7 +1411,8 @@ return {};
             <label class="field mode-field" for="mode"><span>Test mode</span><select id="mode" name="mode"><option value="speed">Speed &amp; loaded latency</option><option value="compare">Single vs. multi-stream</option><option value="monitor">Connection stability</option></select></label>
             <label id="durationField" class="field" for="duration"><span>Transfer duration</span><select id="duration" name="duration"><option value="5">Quick · 5 sec / phase</option><option value="10" selected>Standard · 10 sec / phase</option><option value="20">Extended · 20 sec / phase</option></select></label>
             <label id="streamsField" class="field" for="streams"><span>Parallel streams</span><select id="streams" name="streams"><option value="1">1 stream</option><option value="4" selected>4 streams</option><option value="8">8 streams</option></select></label>
-            <label id="budgetField" class="field" for="budget"><span>Data budget</span><select id="budget" name="budget"><option value="50">50 MB</option><option value="250" selected>250 MB</option><option value="1000">1,000 MB</option></select></label>
+            <label id="budgetField" class="field" for="budget"><span>Data budget</span><select id="budget" name="budget"><option value="50">50 MB</option><option value="250">250 MB</option><option value="1000" selected>1 GB</option><option value="5000">5 GB</option><option value="10000">10 GB</option><option value="custom">Custom MB</option><option value="none">No cap — use selected duration</option></select></label>
+            <label id="customBudgetField" class="field" for="customBudget" hidden><span>Custom budget · MB</span><input id="customBudget" name="customBudget" type="number" inputmode="decimal" min="0.000001" step="0.000001" value="1000" disabled aria-describedby="budgetError"><span id="budgetError" class="field-error" role="alert" hidden></span></label>
             <label id="monitorField" class="field" for="monitorMinutes" hidden><span>Monitor duration</span><select id="monitorMinutes" name="monitorMinutes"><option value="5">5 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label>
             <label class="field label-field" for="label"><span>Run label <span class="optional">optional</span></span><input id="label" name="label" maxlength="80" placeholder="e.g. Office Wi-Fi, VPN on" autocomplete="off"></label>
           </div>
@@ -1361,7 +1435,7 @@ return {};
               <div class="gauge-reading"><span id="gaugePhase" class="gauge-phase">READY WHEN YOU ARE</span><span id="gaugeValue" class="gauge-value">—</span><span id="gaugeUnit" class="gauge-unit">Mbps</span></div>
             </div>
             <p id="gaugeHint" class="gauge-hint">Start a test to see your connection in motion.</p>
-            <div class="budget"><div class="budget-label"><span>Payload budget</span><span><b id="budgetUsed">0 MB</b> / <span id="budgetLimit">250 MB</span></span></div><progress id="budgetProgress" value="0" max="100" aria-label="Data budget used">0%</progress><p>Includes reserved requests; network overhead is extra.</p></div>
+            <div class="budget"><div class="budget-label"><span>Payload budget</span><span><b id="budgetUsed">0 MB</b> / <span id="budgetLimit">1,000 MB</span></span></div><progress id="budgetProgress" value="0" max="100" aria-label="Data budget used">0%</progress><p>Includes reserved requests; network overhead is extra.</p></div>
           </div>
           <div class="live-charts">
             <div class="chart-card"><div class="chart-heading"><h3>Transfer rate <span>Mbps</span></h3><div class="legend"><span class="legend-download">Download</span><span class="legend-upload">Upload</span></div></div><div class="chart-wrap"><canvas id="throughputChart" role="img" aria-label="Live download and upload throughput over elapsed time">Live throughput graph. Current values are displayed in the measurement cards.</canvas></div><p class="chart-footnote">Seconds into each phase · upload intervals count acknowledged chunks</p></div>

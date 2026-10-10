@@ -80,8 +80,9 @@ function validateOptions(options, kind) {
   if (![1, 4, 8].includes(streams)) throw new TypeError('streams must be 1, 4, or 8');
   if (![5, 10, 20].includes(duration)) throw new TypeError('duration must be 5, 10, or 20 seconds');
   if (![5, 15, 30].includes(monitorMinutes)) throw new TypeError('monitorMinutes must be 5, 15, or 30');
-  const budgetBytes = positiveNumber(options.budgetBytes, 200 * 1024 * 1024, 'budgetBytes');
-  if (!Number.isSafeInteger(budgetBytes)) throw new TypeError('budgetBytes must be a positive safe integer');
+  const budgetBytes = options.budgetBytes === null
+    ? null : positiveNumber(options.budgetBytes, 1_000_000_000, 'budgetBytes');
+  if (budgetBytes !== null && !Number.isSafeInteger(budgetBytes)) throw new TypeError('budgetBytes must be a positive safe integer or null');
   const probeIntervalMs = positiveNumber(options.probeIntervalMs, 1000, 'probeIntervalMs');
   return {
     streams, duration, monitorMinutes, budgetBytes, probeIntervalMs,
@@ -191,9 +192,12 @@ export class SpeedTestEngine {
       }
       // Reserve an independent half for each direction, so a fast download does
       // not consume the entire upload allowance before upload even begins.
-      const downloadAllowance = Math.floor(context.options.budgetBytes / 2);
+      // An explicit null disables the cap; only internal allowances use Infinity.
+      const capped = context.options.budgetBytes !== null;
+      const downloadAllowance = capped ? Math.floor(context.options.budgetBytes / 2) : Infinity;
+      const uploadAllowance = capped ? context.options.budgetBytes - downloadAllowance : Infinity;
       if (!controller.signal.aborted) await this._transfer(context, 'download', downloadAllowance);
-      if (!controller.signal.aborted) await this._transfer(context, 'upload', context.options.budgetBytes - downloadAllowance);
+      if (!controller.signal.aborted) await this._transfer(context, 'upload', uploadAllowance);
       const phases = [result.download, result.upload];
       const measured = phases.some(phase => phase.mbps !== null);
       const latencyMeasured = result.latency.idle.some(sample => sample.ms !== null);
@@ -341,7 +345,8 @@ export class SpeedTestEngine {
 
   _reserve(context, phase, requested, allowanceRemaining) {
     const budget = context.result.budget;
-    const bytes = Math.max(0, Math.floor(Math.min(requested, allowanceRemaining, budget.limitBytes - budget.usedBytes)));
+    const remaining = budget.limitBytes === null ? Infinity : budget.limitBytes - budget.usedBytes;
+    const bytes = Math.max(0, Math.floor(Math.min(requested, allowanceRemaining, remaining)));
     if (bytes > 0) {
       budget.usedBytes += bytes;
       this._emit({ type: 'budget', phase, ...budget });

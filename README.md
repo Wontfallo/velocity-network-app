@@ -39,8 +39,10 @@ can impose network restrictions even when JavaScript is enabled.
 - Saved history, labels, full dates, metric trends, CSV export, and before/after
   comparisons with absolute and percentage changes.
 - Automatic sequential single-stream versus 4- or 8-stream comparisons.
-- Quick, standard, or extended 5/10/20-second transfer phases, a shared payload
-  budget, and cancellation that aborts current network requests.
+- Quick, standard, or extended 5/10/20-second transfer phases; selectable
+  50 MB, 250 MB, 1 GB, 5 GB, 10 GB, custom MB, or no payload cap; and
+  cancellation that aborts current network requests. The default is 1 GB,
+  and your budget choice is remembered in this browser.
 - Actual interval throughput charts. Download and upload overlay by seconds
   into each phase; latency uses seconds since the run began.
 - Optional synthesized audio, bounded diagnostic logs, keyboard controls,
@@ -75,9 +77,11 @@ means concurrent requests, not a guarantee of independent transport sockets.
 The data budget conservatively reserves each entire payload before dispatch,
 including requests that fail or are cancelled. It is **not an ISP billing cap**:
 headers, TLS, retransmissions, probe overhead, and upload response overhead are
-excluded. Half the budget is reserved for each transfer direction. Automatic
-comparison splits the total selected budget between its two runs, then splits
-each run between download and upload. The visible budget meter is per run.
+excluded. With a finite cap, half is reserved for each transfer direction.
+Automatic comparison splits the selected cap between its two runs, then splits
+each run between download and upload. **No cap** removes these payload limits;
+the selected duration and Stop still end the test. Uncapped runs retain actual
+usage in history with a JSON-safe `null` limit. The visible usage meter is per run.
 
 Loaded probes run during generated transfer traffic; this does not guarantee
 that the connection is fully saturated. Negative loaded-minus-idle differences
@@ -180,8 +184,10 @@ complete loaded-latency verification. Both app runs together reserve at most
 HTTP/file endpoint matrix, capped at another 58 MiB; its responses are not
 speed measurements and all failures remain in the diagnostics.
 
-The separate Android workflow builds a native WebView host and runs an Android
-16 emulator; see `android/README.md` for its own criteria and results.
+The separate Android workflow runs installed Android Chrome and a native
+WebView host on an Android 16 emulator. Chrome tests **No cap** and requires
+both full transfer durations; WebView also tests the standalone local file.
+See `android/README.md` for its criteria and results.
 The byte-identical original Gemini file is also run, with passive native network
 observations kept separate from its displayed values. Consult each workflow's actual
 result: adding a test does not establish that it passed. Emulator coverage

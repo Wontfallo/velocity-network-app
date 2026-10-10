@@ -3,6 +3,9 @@ import { HistoryStore, summarizeLatency, summarizeResult, compareResults, toCSV 
 
 const $ = id => document.getElementById(id);
 const APP_VERSION = $('appVersion').getAttribute('data-version');
+const PREFERENCES_KEY = 'velocity.preferences.v1';
+const budgetChoices = new Set(['50','250','1000','5000','10000','custom','none']);
+let lastValidCustomBudget = '1000';
 const number = (value, digits = 1) => Number.isFinite(value) ? value.toFixed(digits) : '—';
 const set = (id, value) => { $(id).textContent = value; };
 const colors = {download:'#29d3df', upload:'#b997ff', idle:'#f6be66', monitor:'#40d8ac'};
@@ -242,10 +245,60 @@ function capabilities(result,s) {
   set('cloudScore',valid&&Number.isFinite(up)?`${number(up/8)} MB/s upload`:'Not assessed');
 }
 
+function customBudgetBytes(value) {
+  const megabytes=Number(value);
+  const bytes=Math.round(megabytes*1e6);
+  if(!Number.isFinite(megabytes)||megabytes<=0||!Number.isSafeInteger(bytes)||bytes<=0) {
+    throw new RangeError('Enter a positive budget in MB.');
+  }
+  return bytes;
+}
+
+function selectedBudgetBytes() {
+  const selection=$('budget').value;
+  if(selection==='none')return null;
+  return customBudgetBytes(selection==='custom'?$('customBudget').value:selection);
+}
+
+function restoreBudgetPreferences() {
+  try {
+    const preference=JSON.parse(globalThis.localStorage?.getItem(PREFERENCES_KEY) || 'null');
+    if(!preference || !budgetChoices.has(preference.budget))return;
+    if(preference.customMB!==undefined) {
+      customBudgetBytes(preference.customMB);
+      lastValidCustomBudget=String(preference.customMB);
+      $('customBudget').value=lastValidCustomBudget;
+    }
+    $('budget').value=preference.budget;
+  } catch { /* Blocked or malformed preferences leave the default available. */ }
+}
+
+function saveBudgetPreferences() {
+  try {customBudgetBytes($('customBudget').value);lastValidCustomBudget=$('customBudget').value;}
+  catch { /* Preserve the last valid custom amount while the field is being edited. */ }
+  try {
+    globalThis.localStorage?.setItem(PREFERENCES_KEY,JSON.stringify({budget:$('budget').value,customMB:lastValidCustomBudget}));
+  } catch { /* Preferences are optional; a test never depends on storage. */ }
+}
+
+function budgetControls() {
+  const custom=$('budget').value==='custom'&&$('mode').value!=='monitor';
+  $('customBudgetField').hidden=!custom;
+  $('customBudget').disabled=busy||!custom;
+  $('customBudget').required=custom;
+  $('budgetError').hidden=true;
+  $('customBudget').removeAttribute('aria-invalid');
+}
+
 function setBudget(budget) {
-  const used=budget?.usedBytes || 0,limit=budget?.limitBytes || Number($('budget').value)*1e6;
-  set('budgetUsed',`${number(used/1e6)} MB`);set('budgetLimit',`${number(limit/1e6,0)} MB`);
-  $('budgetProgress').max=limit; $('budgetProgress').value=used;
+  const used=Number.isFinite(budget?.usedBytes)?budget.usedBytes:0;
+  let limit;
+  if(budget&&Object.prototype.hasOwnProperty.call(budget,'limitBytes'))limit=budget.limitBytes;
+  else {try {limit=selectedBudgetBytes();} catch {limit=undefined;}}
+  set('budgetUsed',`${number(used/1e6)} MB`);set('budgetLimit',limit===null?'No cap':`${number(limit/1e6,0)} MB`);
+  const finite=Number.isFinite(limit)&&limit>0;
+  $('budgetProgress').hidden=!finite;
+  $('budgetProgress').max=finite?limit:1; $('budgetProgress').value=finite?Math.min(used,limit):0;
 }
 
 function event(event) {
@@ -293,10 +346,11 @@ function controls() {
   const mode=$('mode').value;
   $('monitorField').hidden=mode!=='monitor';
   for(const id of ['durationField','streamsField','budgetField'])if($(id))$(id).hidden=mode==='monitor';
-  set('modeHelp',mode==='compare'?'Runs 1 stream, then your selected multiple-stream setting. The total payload budget is shared equally between both runs.':mode==='monitor'?'Lightweight HTTP probes for 5–30 minutes. Keep this tab visible and your device awake.':'Measures idle latency, then download and upload with simultaneous latency probes.');
+  set('modeHelp',mode==='compare'?`Runs 1 stream, then your selected multiple-stream setting. ${$('budget').value==='none'?'Each run uses the selected transfer duration.':'The total payload budget is shared equally between both runs.'}`:mode==='monitor'?'Lightweight HTTP probes for 5–30 minutes. Keep this tab visible and your device awake.':'Measures idle latency, then download and upload with simultaneous latency probes.');
   set('startBtn',mode==='compare'?'Compare streams':mode==='monitor'?'Start monitoring':'Start speed test');
   if(mode==='compare'&&$('streams').value==='1')$('streams').value='4';
   const single=$('streams').querySelector('option[value="1"]');if(single)single.disabled=mode==='compare';
+  budgetControls();
   setBudget(null);
 }
 
@@ -304,20 +358,31 @@ function setBusy(value) {
   busy=value;
   $('settings').querySelectorAll('input,select,button[type="submit"]').forEach(el=>el.disabled=value);
   $('stopBtn').disabled=!value;$('resetBtn').disabled=value;$('clearHistory').disabled=value;
+  budgetControls();
   set('statusBadge',value?'RUNNING':'READY');
 }
 
 async function start(e) {
   e.preventDefault();if(busy)return;
+  const mode=$('mode').value;
+  let budgetBytes;
+  try {
+    budgetBytes=mode==='monitor'?null:selectedBudgetBytes();
+    if(mode==='compare'&&budgetBytes!==null&&budgetBytes<2)throw new RangeError('Enter at least 0.000002 MB for two comparison runs.');
+  }
+  catch(error) {
+    set('budgetError',error.message);$('budgetError').hidden=false;
+    $('customBudget').setAttribute('aria-invalid','true');$('customBudget').focus();return;
+  }
+  saveBudgetPreferences();
   stopRequested=false;current=null;setBusy(true);tone();
   $('runtimeIssue').hidden = true;
   let executionFailed = false;
-  const mode=$('mode').value;
-  const options={duration:Number($('duration').value),streams:Number($('streams').value),budgetBytes:Number($('budget').value)*1e6,label:$('label').value.trim(),monitorMinutes:Number($('monitorMinutes').value),probeIntervalMs:mode==='monitor'?1000:400};
+  const options={duration:Number($('duration').value),streams:Number($('streams').value),budgetBytes,label:$('label').value.trim(),monitorMinutes:Number($('monitorMinutes').value),probeIntervalMs:mode==='monitor'?1000:400};
   activeRun = {startedAt:new Date().toISOString(),mode,options:{...options}};
   const sequence=mode==='compare'?[1,options.streams]:[options.streams];
   const pair=[];
-  if(mode==='compare')options.budgetBytes=Math.floor(options.budgetBytes/2);
+  if(mode==='compare'&&options.budgetBytes!==null)options.budgetBytes=Math.floor(options.budgetBytes/2);
   try {
     for(const streams of sequence) {
       if(stopRequested)break;
@@ -420,7 +485,9 @@ function renderComparison() {
 }
 
 $('settings').addEventListener('submit',start);
-$('mode').addEventListener('change',controls);$('budget').addEventListener('change',()=>setBudget(null));
+$('mode').addEventListener('change',controls);
+$('budget').addEventListener('change',()=>{controls();saveBudgetPreferences();});
+$('customBudget').addEventListener('input',()=>{budgetControls();setBudget(null);saveBudgetPreferences();});
 $('stopBtn').addEventListener('click',()=>{stopRequested=true;engine.stop('user');$('stopBtn').disabled=true;set('statusText','Stopping active requests…');});
 $('resetBtn').addEventListener('click',()=>{if(busy)return;current=null;clearReadings();$('monitorSummary').hidden=true;gauge(0,'Mbps','READY','Choose a test to begin');set('statusBadge','READY');set('statusText','Ready to measure');});
 $('soundToggle').addEventListener('click',()=>{audible=!audible;$('soundToggle').setAttribute('aria-pressed',String(audible));$('soundToggle').textContent=audible?'Sound on':'Sound off';tone();});
@@ -443,7 +510,7 @@ window.addEventListener('offline',()=>log('Browser reports offline. Probes will 
 window.addEventListener('online',()=>log('Browser reports connectivity restored.'));
 window.addEventListener('resize',()=>{for(const [id,{series,options}] of plots)plot(id,series,options);});
 window.addEventListener('storage',()=>{if(!busy){history=store.load();renderHistory();}});
-controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
+restoreBudgetPreferences();controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
 log(`Velocity ${APP_VERSION} ready. No measurements or external requests until you start a test.`);
 const pageProtocol=globalThis.location?.protocol || 'unavailable';
 $('localFileNotice').hidden=!['file:','content:','data:','blob:'].includes(pageProtocol);

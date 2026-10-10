@@ -90,7 +90,10 @@ test('built app initializes every DOM binding without auto-fetching; export requ
   assert.equal(app.fetchCount,0);
   assert.equal(app.element('duration').value,'10');
   assert.equal(app.element('streams').value,'4');
-  assert.equal(app.element('budget').value,'250');
+  assert.equal(app.element('budget').value,'1000');
+  assert.equal(app.element('budgetLimit').textContent,'1000 MB');
+  assert.equal(app.element('customBudgetField').hidden,true);
+  assert.equal(app.element('customBudget').disabled,true);
   assert.equal(app.element('exportCsv').disabled,true);
   assert.equal(app.element('stopBtn').disabled,true);
   assert.equal(app.element('downloadValue').textContent,'—');
@@ -187,6 +190,7 @@ test('diagnostics distinguish last execution from a viewed saved result and capt
 test('compare enforces multi-stream selection, splits budget, saves sequential runs and selects the pair', async () => {
   let releaseFirst;
   const app = boot({run:(options,index) => index===1 ? new Promise(resolve => {releaseFirst=()=>resolve(speedResult(options,index));}) : speedResult(options,index)});
+  app.element('budget').value='250';await app.element('budget').fire('change');
   app.element('streams').value='1'; app.element('mode').value='compare';
   await app.element('mode').fire('change');
   assert.equal(app.element('streams').value,'4');
@@ -207,6 +211,97 @@ test('compare enforces multi-stream selection, splits budget, saves sequential r
   assert.match(app.element('comparisonBody').textContent,/300\.0%/);
   assert.equal(app.element('stopBtn').disabled,true);
   assert.equal(app.element('exportCsv').disabled,false);
+  await app.assertHealthy();
+});
+
+test('larger presets and custom decimal MB send real byte limits; invalid custom input never starts requests', async () => {
+  const app=boot();
+  for(const megabytes of ['50','250','1000','5000','10000']) {
+    app.element('budget').value=megabytes;await app.element('budget').fire('change');
+    await app.submit();
+    assert.equal(app.calls.at(-1).options.budgetBytes,Number(megabytes)*1e6);
+  }
+  app.element('budget').value='custom';await app.element('budget').fire('change');
+  assert.equal(app.element('customBudgetField').hidden,false);
+  assert.equal(app.element('customBudget').disabled,false);
+  for(const invalid of ['','0','-1','Infinity','1e100']) {
+    app.element('customBudget').value=invalid;await app.element('customBudget').fire('input');
+    await app.submit();
+    assert.equal(app.calls.length,5);
+    assert.equal(app.element('budgetError').hidden,false);
+    assert.equal(app.element('startBtn').disabled,false);
+  }
+  app.element('customBudget').value='750.5';await app.element('customBudget').fire('input');
+  await app.submit();
+  assert.equal(app.calls.at(-1).options.budgetBytes,750500000);
+  assert.equal(app.element('budgetError').hidden,true);
+  assert.equal(app.saved()[0].settings.budgetBytes,750500000);
+  await app.assertHealthy();
+});
+
+test('No cap stays null in both comparison runs, persistence, and the live meter', async () => {
+  const app=boot({run:(options,index,engine)=>{
+    assert.equal(options.budgetBytes,null);
+    engine.onEvent({type:'budget',usedBytes:123456789,limitBytes:null});
+    assert.equal(app.element('budgetLimit').textContent,'No cap');
+    assert.equal(app.element('budgetProgress').hidden,true);
+    assert.equal(app.element('budgetProgress').max,1);
+    assert.equal(Number(app.element('budgetProgress').value),0);
+    assert.equal(app.element('budgetUsed').textContent,'123.5 MB');
+    return speedResult(options,index);
+  }});
+  app.element('budget').value='none';await app.element('budget').fire('change');
+  app.element('mode').value='compare';await app.element('mode').fire('change');
+  assert.match(app.element('modeHelp').textContent,/selected transfer duration/);
+  await app.submit();
+  assert.deepEqual(app.calls.map(call=>call.options.budgetBytes),[null,null]);
+  assert.equal(app.saved().length,2);
+  for(const result of app.saved()) {
+    assert.equal(result.settings.budgetBytes,null);
+    assert.equal(result.budget.limitBytes,null);
+  }
+  assert.equal(app.element('budgetLimit').textContent,'No cap');
+  assert.equal(app.element('budgetProgress').hidden,true);
+  await app.assertHealthy();
+});
+
+test('custom budget preferences survive reload and controls remain disabled while running or monitoring', async () => {
+  const first=boot();
+  first.element('budget').value='custom';await first.element('budget').fire('change');
+  first.element('customBudget').value='1750.25';await first.element('customBudget').fire('input');
+  let release;
+  const app=boot({storage:first.storage,run:(options,index)=>new Promise(resolve=>{release=()=>resolve(speedResult(options,index));})});
+  assert.equal(app.element('budget').value,'custom');
+  assert.equal(app.element('customBudget').value,'1750.25');
+  assert.equal(app.element('customBudgetField').hidden,false);
+  const finished=app.submit();
+  assert.equal(app.element('customBudget').disabled,true);
+  release();await finished;
+  assert.equal(app.element('customBudget').disabled,false);
+  app.element('mode').value='monitor';await app.element('mode').fire('change');
+  assert.equal(app.element('customBudgetField').hidden,true);
+  assert.equal(app.element('customBudget').disabled,true);
+  app.element('mode').value='speed';await app.element('mode').fire('change');
+  app.element('budget').value='none';await app.element('budget').fire('change');
+  const reloaded=boot({storage:app.storage});
+  assert.equal(reloaded.element('budget').value,'none');
+  assert.equal(reloaded.element('budgetLimit').textContent,'No cap');
+  assert.equal(reloaded.element('customBudget').value,'1750.25');
+  await first.assertHealthy();await app.assertHealthy();await reloaded.assertHealthy();
+});
+
+test('blocked preferences storage leaves budget selection and measurements usable', async () => {
+  const app=boot({storage:{
+    getItem(){throw new Error('Storage blocked');},
+    setItem(){throw new Error('Storage blocked');},
+    removeItem(){throw new Error('Storage blocked');},
+  }});
+  assert.equal(app.element('budget').value,'1000');
+  app.element('budget').value='none';await app.element('budget').fire('change');
+  await app.submit();
+  assert.equal(app.calls[0].options.budgetBytes,null);
+  assert.equal(app.element('statusBadge').textContent,'COMPLETED');
+  assert.equal(app.element('startBtn').disabled,false);
   await app.assertHealthy();
 });
 

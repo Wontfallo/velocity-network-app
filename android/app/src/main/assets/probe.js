@@ -9,11 +9,17 @@
     try { return JSON.parse(localStorage.getItem('velocity.history.v1') || '{}').records || []; }
     catch { return []; }
   };
+  const measuredPhaseSeconds = result => Object.fromEntries(['download','upload'].map(phase => [
+    phase, Math.max(0, ...(result[phase].samples || []).map(sample => Number.isFinite(sample.t) ? sample.t : 0)),
+  ]));
   const measurementSummary = result => ({
     label: result.label,
     status: result.status,
     durationSeconds: result.durationSeconds,
     requestedSecondsPerPhase: result.settings.duration,
+    requestedBudgetBytes: result.settings.budgetBytes,
+    actualTransferredPayloadBytes: result.download.bytes + result.upload.bytes,
+    measuredPhaseSeconds: measuredPhaseSeconds(result),
     fullDurationCompleted: result.status === 'completed' && result.download.status === 'completed' && result.upload.status === 'completed',
     budgetLimited: result.status === 'budget',
     budget: result.budget,
@@ -52,7 +58,8 @@
     byId('mode').dispatchEvent(new Event('change', {bubbles: true}));
     byId('duration').value = '5';
     byId('streams').value = mode === 'compare' ? '4' : '1';
-    byId('budget').value = '250';
+    byId('budget').value = testCase === 'live-cloudflare-http' ? 'none' : '250';
+    byId('budget').dispatchEvent(new Event('change', {bubbles: true}));
     byId('label').value = label;
     byId('startBtn').click();
     await wait(() => byId('startBtn').disabled, 'Start did not begin a measurement', 3000);
@@ -71,12 +78,21 @@
       for (const id of ['downloadValue','uploadValue','idleMedian','downloadMedian','uploadMedian']) {
         const value = Number.parseFloat(byId(id).textContent);
         check(Number.isFinite(value) && value >= 0, id + ' has no measurement');
-        if (id.endsWith('Value')) check(value > 0, id + ' is not positive');
+        // Cards round to one decimal; a measured rate below 0.05 Mbps displays
+        // 0.0. Verify strictly positive bytes/rate from the saved record below.
       }
       const matching = savedRuns().filter(result => mode === 'compare' ? result.label.startsWith(label + ' · ') : result.label === label);
       check(matching.length === (mode === 'compare' ? 2 : 1), 'Measurement records missing from persisted history');
       for (const result of matching) {
         check((result.errors || []).length === 0, 'Measurement errors: ' + JSON.stringify(result.errors));
+        if (testCase === 'live-cloudflare-http') {
+          check(result.settings.budgetBytes === null && result.budget.limitBytes === null, 'No-cap choice was not retained in the result');
+          check(result.status === 'completed', 'No-cap run did not finish both requested phase durations');
+          check(Number.isFinite(result.budget.usedBytes) && result.budget.usedBytes > 0, 'No-cap run did not record its payload usage');
+          for (const phase of ['download','upload']) {
+            check(measuredPhaseSeconds(result)[phase] >= result.settings.duration - 0.05, phase + ' stopped before the requested duration');
+          }
+        }
         for (const phase of ['download','upload']) {
           check(result[phase].bytes > 0 && Number.isFinite(result[phase].mbps) && result[phase].mbps > 0, phase + ' has no measured payload');
           check((result[phase].errors || []).length === 0, phase + ' has request errors');
@@ -92,7 +108,7 @@
     completed.push({label, mode, status, values: snapshot().values});
   };
   try {
-    await wait(() => byId('appVersion') && byId('startBtn'), 'Application did not render', 10000);
+    await wait(() => document.readyState === 'complete' && byId('appVersion') && byId('startBtn'), 'Application did not render', 10000);
     check(document.documentElement.scrollWidth <= innerWidth + 2, 'Android layout overflows the viewport');
     await run(testCase + ' speed');
     if (testCase === 'fixture-http') {

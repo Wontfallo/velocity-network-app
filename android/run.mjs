@@ -1,4 +1,4 @@
-// Starts a real HTTP fixture and drives the Android APK with adb. Native WebView
+// Drives actual Android Chrome and the native WebView host with adb. Browser
 // security and the page's fetch implementation stay enabled and unmodified.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
@@ -9,12 +9,14 @@ import {fileURLToPath} from 'node:url';
 import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
 import {observeWebViewNetwork} from './network-observer.mjs';
+import {probeAndroidChrome} from './chrome-probe.mjs';
 
 const execute = promisify(execFile);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = join(root, 'test-results/android');
 await mkdir(output, {recursive: true});
 const standalone = await readFile(join(root, 'dist/Velocity.html'), 'utf8');
+const artifactSha256 = createHash('sha256').update(standalone).digest('hex');
 const original = await readFile(join(root, 'android/baseline/Gemini-original.html'));
 const originalHash = createHash('sha256').update(original).digest('hex');
 assert.equal(originalHash, '6081a7427a3816a9d2ed655394e0249ba12fa3adbfe0e338488a44a51b85f976', 'Original comparison baseline was modified');
@@ -86,20 +88,28 @@ try {
     await adb('shell', 'am', 'force-stop', 'dev.velocity.smoke');
     await adb('shell', 'pm', 'clear', 'dev.velocity.smoke');
     await adb('logcat', '-c');
-    await adb('shell', 'am', 'start', '-W', '-n', 'dev.velocity.smoke/.MainActivity', '--es', 'case', testCase, '--es', 'url', url);
     let network;
     let observerError;
-    if (testCase.startsWith('original-')) {
-      try { network = await observeWebViewNetwork(adb, url); }
-      catch (error) { observerError = String(error.stack || error); }
-    }
     let result;
-    const deadline = Date.now() + (testCase === 'fixture-http' ? 240000 : 120000);
-    while (!result && Date.now() < deadline) {
+    if (testCase === 'live-cloudflare-http') {
       try {
-        const response = await adb('shell', 'run-as', 'dev.velocity.smoke', 'cat', 'files/report.json');
-        result = JSON.parse(response.stdout);
-      } catch { await delay(500); }
+        result = await probeAndroidChrome(adb, {url, expectedVersion, artifactSha256, outputDirectory: output});
+      } catch (error) {
+        result = {case: testCase, ok: false, error: String(error.stack || error), browser: 'Android Chrome'};
+      }
+    } else {
+      await adb('shell', 'am', 'start', '-W', '-n', 'dev.velocity.smoke/.MainActivity', '--es', 'case', testCase, '--es', 'url', url);
+      if (testCase.startsWith('original-')) {
+        try { network = await observeWebViewNetwork(adb, url); }
+        catch (error) { observerError = String(error.stack || error); }
+      }
+      const deadline = Date.now() + (testCase === 'fixture-http' ? 240000 : 120000);
+      while (!result && Date.now() < deadline) {
+        try {
+          const response = await adb('shell', 'run-as', 'dev.velocity.smoke', 'cat', 'files/report.json');
+          result = JSON.parse(response.stdout);
+        } catch { await delay(500); }
+      }
     }
     result ||= {case: testCase, ok: false, error: 'Android harness did not report before timeout'};
     if (testCase.startsWith('original-')) {
@@ -117,6 +127,7 @@ try {
     const logs = await adb('logcat', '-d', '-v', 'threadtime');
     await writeFile(join(output, `${testCase}.log`), logs.stdout);
     console.log(JSON.stringify(result, null, 2));
+    if (testCase === 'live-cloudflare-http') await adb('shell', 'am', 'force-stop', 'com.android.chrome');
   }
   await writeFile(join(output, 'summary.json'), JSON.stringify({results, fixtureRequests: counts, fixtureOrigins: [...origins]}, null, 2));
   assert.ok(counts.probes >= 8 && counts.downloads > 0 && counts.uploads > 0, 'Android native requests did not reach fixture');

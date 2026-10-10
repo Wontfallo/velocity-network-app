@@ -191,6 +191,63 @@ test('reservations cap concurrent payload attempts and leave an upload allowance
   assert.equal(result.stopReason, 'payload budget reached');
 });
 
+test('an uncapped run measures both full phases and stores a JSON-safe null limit', async () => {
+  const calls = [];
+  const engine = new SpeedTestEngine({
+    ...testConfig, durationScale: 0.02, fetchImpl: goodFetch(calls),
+  });
+  const result = await engine.run({ ...testOptions, streams: 4, budgetBytes: null });
+  assert.equal(result.status, 'completed');
+  assert.equal(result.stopReason, null);
+  for (const phase of ['download', 'upload']) {
+    assert.equal(result[phase].status, 'completed');
+    assert.ok(result[phase].bytes > 1000);
+    assert.ok(result[phase].samples.at(-1).t >= 0.09, 'the phase continues to its 100ms test deadline');
+  }
+  const attemptedBytes = calls.reduce((total, call) => total + (call.method === 'POST'
+    ? call.body.byteLength : Number(call.url.searchParams.get('bytes'))), 0);
+  assert.equal(result.budget.usedBytes, attemptedBytes);
+  assert.ok(Number.isSafeInteger(result.budget.usedBytes));
+  assert.equal(result.budget.limitBytes, null);
+  assert.equal(result.settings.budgetBytes, null);
+  const serialized = JSON.stringify(result);
+  assert.ok(!serialized.includes('Infinity'));
+  assert.equal(JSON.parse(serialized).budget.limitBytes, null);
+});
+
+test('Stop still aborts an active upload when the data budget is disabled', async () => {
+  const successfulFetch = goodFetch();
+  let uploadSignal;
+  let engine;
+  engine = new SpeedTestEngine({
+    ...testConfig,
+    fetchImpl: (url, init) => {
+      if (init.method !== 'POST') return successfulFetch(url, init);
+      uploadSignal = init.signal;
+      setTimeout(() => engine.stop('user requested'), 5);
+      return new Promise(() => {});
+    },
+  });
+  const result = await engine.run({ ...testOptions, budgetBytes: null });
+  assert.equal(result.status, 'cancelled');
+  assert.equal(result.stopReason, 'user requested');
+  assert.equal(engine.isRunning, false);
+  assert.equal(uploadSignal.aborted, true);
+  assert.ok(result.download.bytes > 0);
+  assert.equal(result.upload.bytes, 0, 'an aborted unacknowledged body earns no upload credit');
+  assert.equal(result.budget.limitBytes, null);
+  assert.ok(Number.isSafeInteger(result.budget.usedBytes) && result.budget.usedBytes > 0);
+});
+
+test('omitting the data budget uses a one gigabyte cap rather than disabling it', async () => {
+  const engine = new SpeedTestEngine({ ...testConfig, fetchImpl: () => new Promise(() => {}) });
+  const pending = engine.run({ ...testOptions, budgetBytes: undefined });
+  engine.stop();
+  const result = await pending;
+  assert.equal(result.settings.budgetBytes, 1_000_000_000);
+  assert.equal(result.budget.limitBytes, 1_000_000_000);
+});
+
 test('a payload cap does not hide an earlier failed probe behind budget status', async () => {
   let requests = 0;
   const successfulFetch = goodFetch();
