@@ -1,0 +1,1238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#090d16">
+    <meta name="description" content="Measure your connection with real browser speed tests, loaded latency, stability monitoring, and private local history.">
+    <title>Velocity — Connection intelligence</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23090d16'/%3E%3Cpath d='M36 8 14 36h16l-2 20 22-29H34z' fill='%232dd4bf'/%3E%3C/svg%3E">
+    <style>
+/* Velocity — self-contained, responsive, accessible interface. */
+:root{color-scheme:dark;--bg:#090d16;--panel:#101622;--panel-soft:#141c2b;--border:#ffffff13;--text:#edf2fa;--muted:#93a2b8;--subtle:#708199;--teal:#2dd4bf;--cyan:#38bdf8;--violet:#a78bfa;--amber:#fbbf24;--danger:#fda4af;--radius:22px;--font:Inter,"Segoe UI",Arial,sans-serif;--mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-width:320px;background:radial-gradient(ellipse 800px 500px at 15% 7%,#12303135,transparent),radial-gradient(ellipse 650px 500px at 95% 33%,#30234d22,transparent),var(--bg);color:var(--text);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}button,input,select{font:inherit}button,a,input,select,summary{-webkit-tap-highlight-color:transparent}button,select,summary{cursor:pointer}button{border:0}button:disabled{cursor:not-allowed;opacity:.4}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--cyan);outline-offset:4px}button:not(:disabled),a,select,input{transition:background .15s,border-color .15s,box-shadow .15s,color .15s}a{color:inherit;text-decoration:none}h1,h2,h3,p{margin:0}h1,h2,h3{line-height:1.25}h1{font-size:clamp(28px,3vw,38px);font-weight:650;letter-spacing:-1.4px}h2{font-size:20px;font-weight:620;letter-spacing:-.5px}h3{font-size:13px;font-weight:600}strong,b{font-weight:600}[hidden]{display:none!important}::selection{background:#2dd4bf;color:#091117}.muted{color:var(--muted)}.skip-link{position:fixed;z-index:20;top:10px;left:10px;padding:10px 16px;background:var(--teal);color:#071412;border-radius:8px;transform:translateY(-160%)}.skip-link:focus{transform:translateY(0)}
+.site-header{border-bottom:1px solid var(--border);background:#090d16cb;backdrop-filter:blur(16px)}.header-inner,.container{max-width:1240px;margin:auto}.header-inner{min-height:84px;padding:0 30px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:12px}.brand-mark{display:grid;place-items:center;width:42px;height:42px;border:1px solid #41dec036;border-radius:13px;background:linear-gradient(145deg,#24bda82a,#7963dd28);box-shadow:inset 0 0 18px #2dd4bf08}.brand-mark svg{width:23px;height:23px;fill:var(--teal)}.brand-word{font-size:19px;font-weight:750;letter-spacing:2.5px;line-height:1.25}.brand-tagline{display:block;margin-top:4px;font-size:8px;font-weight:550;letter-spacing:1.6px;color:var(--subtle)}.header-actions,.section-actions,.test-actions{display:flex;align-items:center;gap:8px}.terminal-icon{font-family:var(--mono);color:var(--teal)}.button{display:inline-flex;justify-content:center;align-items:center;gap:8px;min-height:39px;padding:9px 14px;border:1px solid var(--border);border-radius:9px;font-size:12px;font-weight:600;white-space:nowrap;line-height:1.35}.button-quiet{background:#ffffff03;color:#a6b3c7}.button-quiet:hover:not(:disabled){background:#ffffff09;color:#edf2fa;border-color:#ffffff26}.button-primary{background:var(--teal);color:#062f2a;border-color:var(--teal);padding-inline:20px;box-shadow:0 4px 18px #2dd4bf13}.button-primary:hover:not(:disabled){background:#5ce5d4;box-shadow:0 4px 24px #2dd4bf24}.button-primary span{font-size:19px;line-height:1}.button-stop{background:#fda4af0b;color:var(--danger);border-color:#fda4af25}.button-stop:hover:not(:disabled){background:#fda4af1c}.button-stop span{font-size:9px}.container{padding:44px 30px 0}.page-intro{display:flex;justify-content:space-between;align-items:flex-end;gap:28px;margin-bottom:31px}.eyebrow{font-size:9px;font-weight:700;letter-spacing:1.8px;line-height:1.5;color:var(--teal);margin-bottom:9px}.intro-copy{font-size:13px;color:var(--muted);margin-top:13px;max-width:650px;line-height:1.7}.mobile-break{display:none}.endpoint{flex-shrink:0;text-align:right;display:flex;align-items:flex-end;flex-direction:column;gap:11px;padding-bottom:3px}.endpoint>span:last-child{color:var(--subtle);font-size:10px}.status-badge{display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:600;border:1px solid #2dd4bf26;background:#2dd4bf09;color:#b0ded7;padding:6px 11px;border-radius:30px}.status-dot{width:6px;height:6px;display:inline-block;flex-shrink:0;background:var(--teal);border-radius:100%;box-shadow:0 0 9px #2dd4bf4d}.status-badge.running .status-dot{animation:status-pulse 1.6s ease infinite}.status-badge.error,.status-badge.failed{color:var(--danger);border-color:#fda4af35}.panel{background:linear-gradient(125deg,#17233221,transparent 60%),var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:27px;margin-bottom:22px;box-shadow:0 12px 36px #0000000a}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:19px}.section-heading.compact{margin-bottom:17px}.compact h2{font-size:14px;letter-spacing:0}.quiet-tag{font-size:10px;white-space:nowrap;color:var(--subtle)}.section-copy{font-size:12px;line-height:1.7;color:var(--muted);margin-top:-5px;margin-bottom:20px}.settings-panel{padding:22px 25px}.settings-grid{display:grid;grid-template-columns:1.45fr 1.25fr .85fr .85fr 1.4fr;gap:12px}.field{display:flex;flex-direction:column;gap:7px;min-width:0}.field>span{font-size:10px;font-weight:600;color:#9daac0;line-height:1.5}.field .optional{color:var(--subtle);font-weight:400;margin-left:3px}select,input{height:42px;max-width:100%;min-width:0;width:100%;padding:10px 11px;border:1px solid #ffffff13;background:#0b111b;color:#d8e1ed;border-radius:8px;font-size:11px;line-height:1.5}select{padding-right:26px}input::placeholder{color:#697a94}select:hover,input:hover{border-color:#ffffff26}select:disabled,input:disabled{opacity:.5;cursor:not-allowed}option{background:#101622;color:var(--text)}.settings-footer{display:flex;align-items:center;justify-content:space-between;gap:24px;border-top:1px solid #ffffff09;padding-top:18px;margin-top:20px}.help-text{font-size:11px;color:var(--subtle);max-width:590px;line-height:1.7}.test-actions{flex-shrink:0}.measurement-panel{position:relative;overflow:hidden;background:radial-gradient(ellipse 450px 400px at 18% 70%,#2dd4bf05,transparent),var(--panel)}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:25px}.metric-card{padding:18px 20px 15px;min-width:0;background:linear-gradient(120deg,#ffffff02,transparent);border:1px solid var(--border);border-radius:13px}.metric-card h3{font-size:10px;letter-spacing:.65px;text-transform:uppercase;color:#99a9bf;display:flex;align-items:center;gap:7px}.metric-card h3>span{font-size:14px;line-height:1;font-weight:400}.download-card h3,.download-card .metric-number{color:#5fdfd0}.upload-card h3,.upload-card .metric-number{color:#b9a0ff}.latency-symbol{color:var(--amber)}.jitter-symbol{color:#fb8dc1}.metric-number{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:32px;font-weight:600;line-height:1.6;letter-spacing:-1.4px;white-space:nowrap}.unit{font-family:var(--font);font-size:10px;letter-spacing:0;color:var(--subtle);font-weight:400}.metric-hint{font-size:10px;color:var(--subtle);line-height:1.5}.live-layout{display:grid;grid-template-columns:330px minmax(0,1fr);gap:37px;align-items:center}.gauge-panel{padding:0 15px 5px;min-width:0}.gauge{position:relative;width:100%;max-width:280px;aspect-ratio:280/240;margin:0 auto}.gauge-svg{display:block;width:100%;height:100%;overflow:visible}.gauge-track,.gauge-arc{fill:none;stroke-width:9;stroke-linecap:round}.gauge-track{stroke:#213143}.gauge-arc{stroke:url(#gaugeGradient);filter:drop-shadow(0 0 7px #2dd4bf33);transition:stroke-dashoffset .35s ease}.gauge-inner{fill:none;stroke:#ffffff0a;stroke-width:1;stroke-dasharray:1 8}.gauge-reading{position:absolute;inset:67px 15px 28px;display:flex;align-items:center;justify-content:center;flex-direction:column}.gauge-phase{color:var(--subtle);font-size:8px;letter-spacing:1.5px;font-weight:600;max-width:200px;text-align:center}.gauge-value{font-family:var(--mono);font-size:54px;font-weight:600;letter-spacing:-3px;line-height:1.65;max-width:100%}.gauge-unit{font-size:11px;color:var(--subtle)}.gauge-hint{text-align:center;color:var(--muted);font-size:10px;line-height:1.7;min-height:32px;max-width:280px;margin:-10px auto 26px}.budget{border-top:1px solid var(--border);padding-top:19px}.budget-label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--muted);margin-bottom:10px}.budget-label b{color:#d0dbea;font-family:var(--mono);font-weight:400}.budget>p{font-size:8px;color:var(--subtle);line-height:1.5;margin-top:9px}progress{appearance:none;width:100%;height:4px;border:0;border-radius:9px;display:block;background:#253247;overflow:hidden}progress::-webkit-progress-bar{background:#253247;border-radius:9px}progress::-webkit-progress-value{background:linear-gradient(90deg,var(--teal),var(--cyan));border-radius:9px;transition:width .2s}progress::-moz-progress-bar{background:var(--teal);border-radius:9px}.live-charts{display:grid;gap:15px;min-width:0}.chart-card{border:1px solid #ffffff0b;border-radius:12px;padding:15px 16px 10px;background:#0b11196b;min-width:0}.chart-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px}.chart-heading h3{font-size:11px;color:#c3cede;font-weight:500}.chart-heading h3>span{font-size:9px;color:var(--subtle);font-weight:400;margin-left:4px}.legend{display:flex;gap:13px;font-size:8px;color:var(--muted)}.legend>span{display:flex;align-items:center;gap:5px}.legend>span:before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--teal)}.legend>.legend-upload:before{background:var(--violet)}.legend>.legend-latency:before{background:var(--amber)}.chart-wrap{position:relative;height:122px;min-width:0}.chart-wrap canvas,.trend-chart-wrap canvas{display:block;width:100%;height:100%}.chart-footnote{color:var(--subtle);font-size:8px;margin-top:5px;line-height:1.5}.monitor-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;padding:22px;margin-top:23px;background:#2dd4bf06;border:1px solid #2dd4bf16;border-radius:12px}.monitor-summary>div{display:flex;flex-direction:column;gap:7px}.monitor-summary span{font-size:10px;color:var(--muted)}.monitor-summary strong{font-size:20px;font-family:var(--mono)}.result-issues:empty{display:none}.result-issues{margin-top:22px;font-size:11px;color:#e9c984;line-height:1.8;border:1px solid #fbbf2420;background:#fbbf2406;border-radius:10px;padding:12px 16px}.result-issues ul{margin:0;padding-left:17px}.result-issues p+p{margin-top:8px}.insights-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:22px}.insights-grid .panel{min-width:0}.insights-grid h2{font-size:18px}.grade-badge{display:grid;place-items:center;min-width:45px;height:45px;padding:5px 11px;border:1px solid #2dd4bf25;background:#2dd4bf09;color:var(--teal);border-radius:12px;font-family:var(--mono);font-size:24px;flex-shrink:0}.table-scroll{overflow:auto;max-width:100%;scrollbar-width:thin;scrollbar-color:#314159 transparent}table{width:100%;border-collapse:collapse;font-size:11px;text-align:left}th{font-weight:500}thead th{color:var(--subtle);font-size:9px;padding:11px 12px;border-bottom:1px solid #ffffff12;white-space:nowrap}tbody td,tbody th{padding:14px 12px;border-bottom:1px solid #ffffff09;color:#c5d0e0}tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}tbody th{color:#aab8cb;white-space:nowrap}tbody td:not(:first-child){font-variant-numeric:tabular-nums}.latency-table thead th:first-child,.latency-table tbody th{padding-left:0}.latency-table thead th:last-child,.latency-table tbody td:last-child{padding-right:0}.latency-table td{white-space:nowrap;font-family:var(--mono);font-size:10px}.table-dot{display:inline-block;width:5px;height:5px;vertical-align:middle;border-radius:50%;margin-right:7px}.idle-dot{background:var(--amber)}.download-dot{background:var(--teal)}.upload-dot{background:var(--violet)}.footnote{font-size:10px;line-height:1.7;color:var(--subtle)}.latency-panel>.footnote{border-top:1px solid #ffffff0a;margin-top:7px;padding-top:14px}.quality-summary{font-size:12px;color:var(--muted);margin-bottom:15px}.quality-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quality-grid>div{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid #ffffff0a;background:#ffffff02;border-radius:10px}.quality-grid>div>span{font-size:10px;color:var(--muted)}.quality-grid>div>span>span{color:#8b9fc0;margin-right:4px}.quality-grid strong{font-size:12px;color:#dce6f4;font-weight:550}.quality-panel>.footnote{margin-top:16px}.count-badge{display:inline-block;vertical-align:middle;margin-left:7px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0;line-height:1.7;min-width:23px;padding:0 5px;text-align:center;border:1px solid #ffffff13;border-radius:6px}.history-panel .section-heading{margin-bottom:13px}.trend-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:27px}.inline-field{display:flex;flex-direction:row;align-items:center;gap:10px}.inline-field select{width:auto;height:34px;font-size:10px;padding-block:6px}.trend-chart-wrap{position:relative;height:155px;margin-top:16px;margin-bottom:17px;min-width:0}.history-table{min-width:830px}.history-table thead th{background:#0b111960}.history-table thead th:first-child{border-radius:7px 0 0 7px}.history-table thead th:last-child{border-radius:0 7px 7px 0}.history-table tbody td{font-size:10px}.history-table tbody td:nth-child(2){max-width:190px;overflow-wrap:anywhere}.history-table button{font-size:10px;border:1px solid #ffffff17;background:#ffffff04;color:#a7bbc8;border-radius:5px;padding:4px 7px;margin:2px 3px;min-height:29px}.history-table button:hover{background:#ffffff0c}.empty-state{text-align:center!important;font-family:var(--font)!important;font-size:11px!important;color:var(--subtle)!important;padding:27px 14px!important}.comparison-selects{display:grid;grid-template-columns:1fr 30px 1fr;gap:18px;align-items:end;margin-bottom:19px;max-width:850px}.comparison-selects .field>span{display:flex;gap:7px;align-items:center}.comparison-letter{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:4px;background:#2dd4bf13;color:var(--teal);font-size:9px}.comparison-selects label:last-child .comparison-letter{background:#a78bfa16;color:var(--violet)}.compare-arrow{padding-bottom:11px;color:var(--subtle);text-align:center}.comparison-table th:first-child,.comparison-table td:first-child{padding-left:0}.comparison-panel>.footnote{margin-top:12px}.positive,.improvement,.good{color:var(--teal)!important}.negative,.regression,.bad{color:var(--danger)!important}.neutral{color:var(--muted)!important}.warning{color:var(--amber)!important}.notice{border-radius:9px;padding:10px 13px;font-size:11px;line-height:1.7;margin:10px 0}.notice-warning{border:1px solid #fbbf242a;background:#fbbf2408;color:#e5c98c}.methodology{border:1px solid #ffffff0b;background:#10162277;border-radius:14px;margin:30px 0 28px}.methodology summary{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px 22px;list-style:none;color:#a6b4c9;font-size:11px;font-weight:500}.methodology summary::-webkit-details-marker{display:none}.methodology summary>span{font-size:18px;font-weight:400;color:var(--subtle)}.methodology[open] summary>span{transform:rotate(45deg)}.methodology-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px 35px;padding:3px 22px 23px}.methodology-grid h3{font-size:11px;font-weight:500;color:#b8c6d9;margin-bottom:8px}.methodology-grid p{color:var(--subtle);font-size:11px;line-height:1.8}.site-footer{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 0 28px;font-size:9px;color:#64768f}.footer-brand{font-size:9px;letter-spacing:1.5px;font-weight:600}.footer-brand>span:last-child{letter-spacing:0;font-weight:400}.footer-dot{padding:0 10px;color:#324156}.log-drawer{position:fixed;right:20px;bottom:20px;width:min(660px,calc(100vw - 40px));height:min(450px,75vh);z-index:40;display:flex;flex-direction:column;background:#0b111cf5;backdrop-filter:blur(18px);border:1px solid #ffffff20;box-shadow:0 20px 90px #0009;border-radius:17px;overflow:hidden}.log-drawer-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:19px 21px;border-bottom:1px solid var(--border)}.log-drawer-heading .eyebrow{margin-bottom:4px;font-size:8px}.log-drawer-heading h2{font-size:16px}.log-content{flex:1;overflow:auto;padding:18px 21px;font-family:var(--mono);font-size:10px;line-height:1.9;word-break:break-word}.log-content>div,.log-content>p{border-bottom:1px solid #ffffff05;padding:4px 0}.log-content .error{color:var(--danger)}.log-content .warn{color:var(--amber)}.log-content time{color:#667c97;margin-right:8px}.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;max-width:calc(100vw - 35px);width:max-content;background:#223440;color:#d5f4ed;border:1px solid #2dd4bf30;border-radius:11px;box-shadow:0 8px 30px #0005;padding:12px 20px;font-size:12px}.noscript{position:fixed;inset:auto 0 0;z-index:100;padding:20px;background:#fbbf24;color:#17120a;text-align:center;font-weight:600}@keyframes status-pulse{50%{opacity:.35;box-shadow:0 0 14px #2dd4bf77}}
+@media(min-width:1440px){.container{padding-top:50px}.page-intro{margin-bottom:35px}}
+@media(max-width:1050px){.settings-grid{grid-template-columns:1.3fr 1.3fr 1fr}.label-field{grid-column:span 2}.live-layout{grid-template-columns:280px minmax(0,1fr);gap:20px}.gauge-panel{padding-inline:5px}.insights-grid{grid-template-columns:1fr 1fr}.panel{padding:23px}.metric-card{padding-inline:15px}.metric-number{font-size:27px}.endpoint{max-width:220px}.page-intro h1{font-size:30px}.page-intro{gap:20px}.quality-grid>div{padding:12px}.latency-table td{font-size:9px}.latency-table th{font-size:10px}.latency-table thead th{font-size:8px}.latency-table td,.latency-table th{padding-inline:7px}.settings-footer{gap:17px}}
+@media(max-width:800px){.header-inner{padding-inline:22px;min-height:75px}.container{padding:31px 22px 0}.page-intro{align-items:flex-start}.page-intro h1{font-size:28px}.intro-copy{font-size:12px}.endpoint{max-width:160px;padding-top:24px}.endpoint>span:last-child{font-size:9px;line-height:1.7}.status-badge{font-size:10px}.settings-footer{align-items:flex-start;flex-direction:column;gap:15px}.test-actions{width:100%;justify-content:flex-end}.settings-footer .help-text{max-width:100%}.live-layout{grid-template-columns:240px minmax(0,1fr);gap:15px}.metric-grid{gap:10px}.metric-card{padding:14px 12px}.metric-number{font-size:24px;gap:5px;letter-spacing:-1px}.metric-card h3{font-size:8px;gap:5px}.metric-hint{font-size:9px}.gauge-reading{inset:56px 10px 24px}.gauge-value{font-size:45px}.gauge-phase{font-size:7px}.chart-card{padding:13px 12px 10px}.chart-heading{flex-wrap:wrap;gap:7px}.chart-wrap{height:105px}.legend{font-size:7px;gap:9px}.gauge-hint{font-size:9px}.budget-label{font-size:9px}.insights-grid{grid-template-columns:1fr;gap:0}.quality-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.quality-grid>div>span{font-size:9px}.quality-grid strong{font-size:11px}.quality-panel .section-heading{margin-bottom:15px}.quality-panel>.footnote{margin-top:17px}.latency-table td{font-size:11px}.latency-table th{font-size:11px}.latency-table thead th{font-size:9px}.history-panel .section-heading{align-items:flex-start}.history-panel h2{font-size:18px}.history-panel .section-actions{gap:5px;flex-shrink:0}.history-panel .button{font-size:10px;padding:8px 9px;min-height:34px}.trend-heading>.footnote{display:none}.methodology-grid{gap:22px}.section-heading .quiet-tag{font-size:9px}}
+@media(max-width:620px){.header-inner{min-height:72px;padding-inline:18px}.brand-mark{width:35px;height:35px;border-radius:10px}.brand-mark svg{width:20px;height:20px}.brand{gap:9px}.brand-word{font-size:16px;letter-spacing:1.8px}.brand-tagline{font-size:6.5px;letter-spacing:1px}.header-actions{gap:6px}.header-actions .button{min-height:34px;font-size:10px;padding:7px 9px}.container{padding:27px 17px 0}.page-intro{flex-direction:column;gap:19px;margin-bottom:23px}.page-intro h1{font-size:29px;letter-spacing:-1px;line-height:1.22}.mobile-break{display:block}.eyebrow{font-size:8px;letter-spacing:1.5px;margin-bottom:9px}.intro-copy{font-size:11px;line-height:1.8;margin-top:12px;max-width:440px}.endpoint{padding:0;max-width:none;flex-direction:row;align-items:center;gap:12px;width:100%;text-align:left}.endpoint>span:last-child{font-size:8px}.status-badge{font-size:9px;padding:5px 8px;gap:6px}.status-dot{width:5px;height:5px}.panel{padding:20px 17px;border-radius:17px;margin-bottom:17px}.section-heading{gap:12px;margin-bottom:18px}.section-heading h2{font-size:17px}.section-heading>.quiet-tag{display:none}.settings-panel{padding:18px 16px}.settings-grid{grid-template-columns:1fr 1fr;gap:13px 10px}.mode-field{grid-column:span 2}.label-field{grid-column:span 2}.field>span{font-size:9px}.field select,.field input{height:42px;font-size:10px;padding-inline:9px}.settings-footer{padding-top:14px;margin-top:16px;gap:14px}.help-text{font-size:10px}.test-actions{justify-content:space-between;gap:6px}.test-actions .button{min-height:39px;font-size:10px;padding-inline:12px}.test-actions .button-primary{padding-inline:17px}.test-actions .button-primary>span{font-size:16px}.test-actions .button-quiet{padding-inline:7px}.compact h2{font-size:13px}.compact .quiet-tag{font-size:8px;display:block}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:15px}.metric-card{padding:15px 14px 13px}.metric-card h3{font-size:9px}.metric-card h3>span{font-size:13px}.metric-number{font-size:29px;line-height:1.65}.metric-hint{font-size:9px}.live-layout{grid-template-columns:1fr;gap:23px}.gauge-panel{padding:0 13px 2px}.gauge{max-width:265px}.gauge-reading{inset:65px 15px 27px}.gauge-value{font-size:54px}.gauge-phase{font-size:8px}.gauge-hint{font-size:10px;min-height:0;margin-bottom:21px}.budget{padding-top:16px}.budget-label{font-size:10px}.budget>p{font-size:8px}.live-charts{gap:13px}.chart-card{padding:14px 13px 10px}.chart-heading{flex-wrap:nowrap}.chart-heading h3{font-size:10px}.chart-wrap{height:128px}.legend{font-size:8px}.chart-footnote{font-size:8px}.monitor-summary{grid-template-columns:1fr 1fr;gap:18px 12px;padding:16px}.monitor-summary span{font-size:9px}.monitor-summary strong{font-size:18px}.section-copy{font-size:11px;margin-bottom:17px}.insights-grid h2{font-size:17px}.grade-badge{height:40px;min-width:40px;font-size:20px;border-radius:10px}.latency-table td{font-size:9px}.latency-table th{font-size:10px}.latency-table thead th{font-size:8px}.latency-table td,.latency-table th{padding-inline:6px}.table-dot{margin-right:5px;width:4px;height:4px}.footnote{font-size:9px}.quality-grid{grid-template-columns:1fr 1fr}.quality-grid>div{padding:14px}.quality-grid>div>span{font-size:10px}.quality-grid strong{font-size:12px}.quality-summary{font-size:11px}.history-panel .section-heading{flex-direction:column;gap:14px}.history-panel h2{font-size:17px}.history-panel .section-actions{width:100%;justify-content:flex-end}.history-panel .section-copy{margin-top:0}.history-panel .button{font-size:9px;min-height:33px}.trend-heading{margin-top:19px}.inline-field select{height:34px}.trend-chart-wrap{height:145px;margin-top:12px;margin-bottom:10px}.history-table{min-width:720px}.comparison-selects{grid-template-columns:1fr;gap:12px}.compare-arrow{display:none}.comparison-selects select{font-size:10px}.comparison-table{font-size:9px}.comparison-table td,.comparison-table th{padding:12px 7px}.comparison-table thead th{font-size:8px}.comparison-table td:first-child{min-width:100px}.comparison-panel .section-heading{margin-bottom:20px}.methodology{margin-top:23px;margin-bottom:23px;border-radius:12px}.methodology summary{padding:16px;font-size:10px}.methodology-grid{grid-template-columns:1fr;padding:1px 16px 18px;gap:21px}.methodology-grid p{font-size:10px}.methodology-grid h3{font-size:10px}.site-footer{padding-bottom:23px;align-items:flex-start;gap:12px}.site-footer>span:last-child{display:none}.footer-brand{font-size:8px}.footer-dot{padding:0 7px}.log-drawer{right:10px;bottom:10px;width:calc(100vw - 20px);height:min(450px,75vh)}.log-drawer-heading{padding:15px}.log-content{padding:14px 15px;font-size:9px}.toast{font-size:11px;padding:11px 15px;bottom:20px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}}
+
+.legend-monitor::before { background: #40d8ac; }
+
+.table-btn { background: #ffffff08; border: 1px solid #ffffff15; color: #a9bdd3; border-radius: 6px; padding: 5px 8px; margin-right: 5px; cursor: pointer; font: inherit; }
+.positive { color: #40d8ac; }
+.negative { color: #fb7185; }
+.empty-row { text-align: center; padding: 28px!important; color: #8392a9; }
+#statusText { font-size: 11px; color: #9daac0; overflow-wrap: anywhere; max-width: 300px; }
+@media (max-width: 620px) { .endpoint { flex-wrap: wrap; } .chart-heading { flex-wrap: wrap; gap: 8px; } .legend { flex-wrap: wrap; gap: 8px; } }
+
+</style>
+    <script type="module">
+(() => { 'use strict'; const __modules = {};
+__modules.data = (() => {
+/** Pure calculations and defensive, local-only result persistence. */
+const HISTORY_KEY = 'velocity.history.v1';
+const HISTORY_VERSION = 1;
+const MAX_HISTORY = 200;
+const MAX_SAMPLES = 1800;
+
+const isNumber = value => typeof value === 'number' && Number.isFinite(value);
+const numberOrNull = value => isNumber(value) && value >= 0 ? value : null;
+const text = (value, length = 240) => typeof value === 'string'
+  ? value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, length)
+  : '';
+const percentile = (sorted, fraction) => {
+  if (!sorted.length) return null;
+  const index = (sorted.length - 1) * fraction;
+  const lower = Math.floor(index);
+  return sorted[lower] + (sorted[Math.ceil(index)] - sorted[lower]) * (index - lower);
+};
+
+/** count counts successful probes; failureRate is a fraction from zero to one.
+ * Jitter is the mean absolute change between adjacent successful probes in
+ * collection order. Failed probes break adjacency rather than joining gaps.
+ */
+function summarizeLatency(samples = []) {
+  const values = [];
+  const changes = [];
+  let failed = 0;
+  let previous = null;
+  for (const sample of Array.isArray(samples) ? samples : []) {
+    const ms = sample?.error ? null : numberOrNull(sample?.ms);
+    if (ms === null) {
+      failed += 1;
+      previous = null;
+    } else {
+      values.push(ms);
+      if (previous !== null) changes.push(Math.abs(ms - previous));
+      previous = ms;
+    }
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  return {
+    count: values.length,
+    failed,
+    median: percentile(sorted, 0.5),
+    p95: percentile(sorted, 0.95),
+    min: sorted.length ? sorted[0] : null,
+    max: sorted.length ? sorted.at(-1) : null,
+    jitter: changes.length ? changes.reduce((sum, n) => sum + n, 0) / changes.length : null,
+    failureRate: values.length + failed ? failed / (values.length + failed) : null,
+  };
+}
+
+const hasTransfer = transfer => numberOrNull(transfer?.mbps) !== null
+  && transfer.mbps > 0
+  && numberOrNull(transfer?.bytes) !== null
+  && transfer.bytes > 0
+  && !['failed', 'unavailable', 'unsupported', 'skipped', 'pending'].includes(transfer.status);
+
+/** Loaded latency only describes a real transfer. A combined grade needs at
+ * least three successful probes in idle and each loaded direction. Cancelled
+ * and failed runs cannot receive a combined grade, even with partial evidence.
+ * Grade thresholds describe added median HTTP latency, not ICMP latency.
+ */
+function summarizeResult(result = {}) {
+  const idle = summarizeLatency(result.latency?.idle);
+  const downloadLoaded = summarizeLatency(result.latency?.download);
+  const uploadLoaded = summarizeLatency(result.latency?.upload);
+  const monitor = summarizeLatency(result.latency?.monitor);
+  const canMeasure = result.kind === 'speed' && idle.median !== null;
+  const downloadAdded = canMeasure && hasTransfer(result.download) && downloadLoaded.median !== null
+    ? Math.max(0, downloadLoaded.median - idle.median) : null;
+  const uploadAdded = canMeasure && hasTransfer(result.upload) && uploadLoaded.median !== null
+    ? Math.max(0, uploadLoaded.median - idle.median) : null;
+  const enoughEvidence = idle.count >= 3 && downloadLoaded.count >= 3 && uploadLoaded.count >= 3
+    && ['completed', 'partial', 'budget'].includes(result.status);
+  const worstAdded = enoughEvidence && downloadAdded !== null && uploadAdded !== null
+    ? Math.max(downloadAdded, uploadAdded) : null;
+  const bufferbloatGrade = worstAdded === null ? null : worstAdded <= 5 ? 'A+'
+    : worstAdded <= 30 ? 'A' : worstAdded <= 60 ? 'B' : worstAdded <= 200 ? 'C' : 'D';
+  return { idle, downloadLoaded, uploadLoaded, monitor, downloadAdded, uploadAdded, bufferbloatGrade };
+}
+
+/** b is the candidate and a the baseline. Missing values remain null; a zero
+ * baseline has no percentage change. Incompatible run kinds return no rows.
+ */
+function compareResults(a, b) {
+  if (!a || !b || a.kind !== b.kind || !['speed', 'monitor'].includes(a.kind)) return [];
+  const left = summarizeResult(a);
+  const right = summarizeResult(b);
+  const row = (metric, label, av, bv, unit, better) => {
+    const aValue = numberOrNull(av);
+    const bValue = numberOrNull(bv);
+    const delta = aValue === null || bValue === null ? null : bValue - aValue;
+    return {
+      metric, label, a: aValue, b: bValue, delta,
+      percent: delta === null || aValue === 0 ? null : delta / aValue * 100,
+      unit, better, compatible: true,
+    };
+  };
+  if (a.kind === 'monitor') {
+    return [
+      row('median', 'Median latency', left.monitor.median, right.monitor.median, 'ms', 'lower'),
+      row('p95', '95th percentile latency', left.monitor.p95, right.monitor.p95, 'ms', 'lower'),
+      row('jitter', 'Jitter', left.monitor.jitter, right.monitor.jitter, 'ms', 'lower'),
+      row('failureRate', 'Failed HTTP probes', left.monitor.failureRate === null ? null : left.monitor.failureRate * 100,
+        right.monitor.failureRate === null ? null : right.monitor.failureRate * 100, '%', 'lower'),
+    ];
+  }
+  return [
+    row('download', 'Download', hasTransfer(a.download) ? a.download.mbps : null,
+      hasTransfer(b.download) ? b.download.mbps : null, 'Mbps', 'higher'),
+    row('upload', 'Upload', hasTransfer(a.upload) ? a.upload.mbps : null,
+      hasTransfer(b.upload) ? b.upload.mbps : null, 'Mbps', 'higher'),
+    row('median', 'Idle median latency', left.idle.median, right.idle.median, 'ms', 'lower'),
+    row('p95', 'Idle 95th percentile', left.idle.p95, right.idle.p95, 'ms', 'lower'),
+    row('jitter', 'Idle jitter', left.idle.jitter, right.idle.jitter, 'ms', 'lower'),
+    row('downloadAdded', 'Download added latency', left.downloadAdded, right.downloadAdded, 'ms', 'lower'),
+    row('uploadAdded', 'Upload added latency', left.uploadAdded, right.uploadAdded, 'ms', 'lower'),
+  ];
+}
+
+const errorList = errors => (Array.isArray(errors) ? errors : []).slice(-30)
+  .map(error => text(typeof error === 'string' ? error : error?.message)).filter(Boolean);
+
+function cleanSamples(samples, valueKey) {
+  return (Array.isArray(samples) ? samples : []).slice(-MAX_SAMPLES).map(sample => {
+    const clean = { t: numberOrNull(sample?.t), [valueKey]: numberOrNull(sample?.[valueKey]) };
+    if (sample?.error) clean.error = text(sample.error) || 'Probe failed';
+    return clean;
+  });
+}
+
+function cleanTransfer(transfer = {}) {
+  return {
+    mbps: numberOrNull(transfer?.mbps),
+    bytes: numberOrNull(transfer?.bytes) ?? 0,
+    status: text(transfer?.status, 30) || 'unavailable',
+    samples: cleanSamples(transfer?.samples, 'mbps'),
+    errors: errorList(transfer?.errors),
+  };
+}
+
+function cleanResult(result) {
+  if (!result || typeof result !== 'object' || !['speed', 'monitor'].includes(result.kind)) return null;
+  if (typeof result.id !== 'string' || !result.id.trim()) return null;
+  const date = typeof result.startedAt === 'string' ? new Date(result.startedAt) : null;
+  if (!date || !Number.isFinite(date.getTime())) return null;
+  return {
+    id: text(result.id, 128),
+    startedAt: date.toISOString(),
+    kind: result.kind,
+    label: text(result.label, 120).trim(),
+    status: ['completed', 'partial', 'failed', 'cancelled', 'budget'].includes(result.status) ? result.status : 'partial',
+    stopReason: text(result.stopReason),
+    settings: {
+      streams: numberOrNull(result.settings?.streams),
+      duration: numberOrNull(result.settings?.duration),
+      budgetBytes: numberOrNull(result.settings?.budgetBytes),
+      monitorMinutes: numberOrNull(result.settings?.monitorMinutes),
+      endpoint: text(result.settings?.endpoint, 500),
+    },
+    download: cleanTransfer(result.download),
+    upload: cleanTransfer(result.upload),
+    latency: Object.fromEntries(['idle', 'download', 'upload', 'monitor']
+      .map(key => [key, cleanSamples(result.latency?.[key], 'ms')])),
+    budget: {
+      usedBytes: numberOrNull(result.budget?.usedBytes) ?? 0,
+      limitBytes: numberOrNull(result.budget?.limitBytes),
+    },
+    errors: errorList(result.errors),
+    durationSeconds: numberOrNull(result.durationSeconds),
+  };
+}
+
+function cleanRecords(records) {
+  const seen = new Set();
+  return records.map(cleanResult).filter(Boolean)
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .filter(record => {
+      if (seen.has(record.id)) return false;
+      seen.add(record.id);
+      return true;
+    }).slice(0, MAX_HISTORY);
+}
+
+/** All methods return records, newest first. Storage failures retain an
+ * in-memory session copy and set warning rather than hiding failed saves.
+ * Data contains plain JSON only; render labels and errors with textContent.
+ */
+class HistoryStore {
+  constructor(storage) {
+    this.warning = null;
+    this.records = [];
+    this.loaded = false;
+    this.persistenceFailed = false;
+    try {
+      this.storage = storage === undefined ? globalThis.localStorage : storage;
+      if (!this.storage || typeof this.storage.getItem !== 'function' || typeof this.storage.setItem !== 'function') {
+        this.storage = null;
+        this.warning = 'Browser storage is unavailable. History is kept only for this session.';
+      }
+    } catch {
+      this.storage = null;
+      this.warning = 'Browser storage access was blocked. History is kept only for this session.';
+    }
+  }
+
+  load() {
+    if (!this.storage || this.persistenceFailed) {
+      this.loaded = true;
+      return this.records;
+    }
+    try {
+      const raw = this.storage.getItem(HISTORY_KEY);
+      if (!raw) {
+        this.records = [];
+        this.warning = null;
+      } else {
+        const parsed = JSON.parse(raw);
+        if (!parsed || parsed.version !== HISTORY_VERSION || !Array.isArray(parsed.records)) {
+          throw new Error('Unrecognized history format');
+        }
+        this.records = cleanRecords(parsed.records);
+        this.warning = this.records.length < Math.min(MAX_HISTORY, parsed.records.length)
+          ? 'Some saved history records were invalid or duplicated and were skipped.' : null;
+      }
+    } catch {
+      this.warning = 'Saved history could not be read. Existing session results are still available.';
+    }
+    this.loaded = true;
+    return this.records;
+  }
+
+  save() {
+    if (!this.storage) return this.records;
+    try {
+      this.storage.setItem(HISTORY_KEY, JSON.stringify({ version: HISTORY_VERSION, records: this.records }));
+      this.warning = null;
+      this.persistenceFailed = false;
+    } catch {
+      this.persistenceFailed = true;
+      this.warning = 'History could not be saved; browser storage may be full or blocked. New results are kept only for this session. Export CSV to keep a copy.';
+    }
+    return this.records;
+  }
+
+  add(result) {
+    if (!this.loaded) this.load();
+    const clean = cleanResult(result);
+    if (!clean) {
+      this.warning = 'This result could not be saved because its ID, date, or test type is invalid.';
+      return this.records;
+    }
+    this.records = cleanRecords([clean, ...this.records.filter(record => record.id !== clean.id)]);
+    return this.save();
+  }
+
+  clear() {
+    this.records = [];
+    this.loaded = true;
+    return this.save();
+  }
+
+  rename(id, label) {
+    if (!this.loaded) this.load();
+    this.records = this.records.map(record => record.id === id
+      ? { ...record, label: text(label, 120).trim() } : record);
+    return this.save();
+  }
+}
+
+// Quoting alone does not stop spreadsheet formula execution. Prefix text whose
+// first non-whitespace character is a formula operator with an apostrophe.
+function csvCell(value) {
+  if (value === null || value === undefined) return '';
+  let valueText = typeof value === 'number' ? (isNumber(value) ? String(value) : '') : String(value);
+  if (typeof value !== 'number' && (/^[\s\uFEFF]*[=+@-]/u.test(valueText) || /^[\t\r\n]/u.test(valueText))) {
+    valueText = `'${valueText}`;
+  }
+  return `"${valueText.replace(/"/g, '""')}"`;
+}
+
+/** One row per run; unavailable/unsupported metrics are empty, never zero. */
+function toCSV(records = []) {
+  const headers = [
+    'ID', 'Started at (UTC ISO 8601)', 'Label', 'Test type', 'Status', 'Stop reason',
+    'Streams', 'Transfer duration (s)', 'Monitor duration (min)', 'Data limit (bytes)', 'Endpoint',
+    'Actual duration (s)', 'Data used (bytes)',
+    'Download (Mbps)', 'Download status', 'Download bytes', 'Upload (Mbps)', 'Upload status', 'Upload bytes',
+    'Idle median (ms)', 'Idle p95 (ms)', 'Idle jitter (ms)', 'Idle successful probes', 'Idle failed probes',
+    'Download loaded median (ms)', 'Download loaded p95 (ms)', 'Download added latency (ms)',
+    'Upload loaded median (ms)', 'Upload loaded p95 (ms)', 'Upload added latency (ms)', 'Bufferbloat grade',
+    'Monitor median (ms)', 'Monitor p95 (ms)', 'Monitor jitter (ms)', 'Monitor minimum (ms)', 'Monitor maximum (ms)',
+    'Monitor successful probes', 'Monitor failed probes', 'Monitor failed HTTP probes (%)', 'Errors',
+  ];
+  const rows = [headers];
+  for (const input of Array.isArray(records) ? records : []) {
+    const result = cleanResult(input);
+    if (!result) continue;
+    const summary = summarizeResult(result);
+    const isSpeed = result.kind === 'speed';
+    const monitor = !isSpeed ? summary.monitor : null;
+    rows.push([
+      result.id, result.startedAt, result.label, result.kind, result.status, result.stopReason,
+      isSpeed ? result.settings.streams : null, isSpeed ? result.settings.duration : null,
+      !isSpeed ? result.settings.monitorMinutes : null, result.settings.budgetBytes, result.settings.endpoint,
+      result.durationSeconds, result.budget.usedBytes,
+      isSpeed && hasTransfer(result.download) ? result.download.mbps : null,
+      isSpeed ? result.download.status : null, isSpeed ? result.download.bytes : null,
+      isSpeed && hasTransfer(result.upload) ? result.upload.mbps : null,
+      isSpeed ? result.upload.status : null, isSpeed ? result.upload.bytes : null,
+      isSpeed ? summary.idle.median : null, isSpeed ? summary.idle.p95 : null, isSpeed ? summary.idle.jitter : null,
+      isSpeed ? summary.idle.count : null, isSpeed ? summary.idle.failed : null,
+      summary.downloadAdded !== null ? summary.downloadLoaded.median : null,
+      summary.downloadAdded !== null ? summary.downloadLoaded.p95 : null, summary.downloadAdded,
+      summary.uploadAdded !== null ? summary.uploadLoaded.median : null,
+      summary.uploadAdded !== null ? summary.uploadLoaded.p95 : null, summary.uploadAdded, summary.bufferbloatGrade,
+      monitor?.median, monitor?.p95, monitor?.jitter, monitor?.min, monitor?.max, monitor?.count, monitor?.failed,
+      monitor?.failureRate === null || !monitor ? null : monitor.failureRate * 100,
+      [...result.errors, ...result.download.errors, ...result.upload.errors].join('; '),
+    ]);
+  }
+  return rows.map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
+}
+
+return {HISTORY_KEY,HISTORY_VERSION,MAX_HISTORY,MAX_SAMPLES,summarizeLatency,summarizeResult,compareResults,HistoryStore,toCSV};
+})();
+__modules.engine = (() => {
+/*
+ * Browser HTTP measurements against Cloudflare's purpose-built speed endpoints.
+ * No warm-up is excluded: connection setup and request overhead affect results.
+ * Download progress counts response bytes; upload progress counts acknowledged
+ * request bodies because Fetch exposes no upload-progress events. The payload
+ * budget reserves entire requests before sending, even if they fail or abort.
+ * It excludes headers, TLS, retransmissions, and zero-body latency requests.
+ */
+const SPEED_ENDPOINT = 'https://speed.cloudflare.com';
+
+class RequestError extends Error {
+  constructor(message, code = 'network') {
+    super(message);
+    this.name = 'RequestError';
+    this.code = code;
+  }
+}
+
+const abortError = signal => new RequestError(
+  signal.reason === 'timeout' ? 'Request timed out' : 'Request aborted',
+  signal.reason === 'timeout' ? 'timeout' : 'aborted',
+);
+
+// Racing the signal also protects cleanup from a stalled stream implementation.
+function abortable(promise, signal) {
+  if (signal.aborted) return Promise.reject(abortError(signal));
+  return new Promise((resolve, reject) => {
+    const aborted = () => { cleanup(); reject(abortError(signal)); };
+    const cleanup = () => signal.removeEventListener('abort', aborted);
+    signal.addEventListener('abort', aborted, { once: true });
+    Promise.resolve(promise).then(
+      value => { cleanup(); resolve(value); },
+      error => { cleanup(); reject(error); },
+    );
+  });
+}
+
+function scope(parentSignal, durationMs) {
+  const controller = new AbortController();
+  const relay = () => controller.abort(parentSignal.reason);
+  if (parentSignal.aborted) relay();
+  else parentSignal.addEventListener('abort', relay, { once: true });
+  const timer = Number.isFinite(durationMs)
+    ? setTimeout(() => controller.abort('deadline'), Math.max(0, durationMs))
+    : null;
+  return {
+    controller,
+    signal: controller.signal,
+    close() {
+      if (timer !== null) clearTimeout(timer);
+      parentSignal.removeEventListener('abort', relay);
+      if (!controller.signal.aborted) controller.abort('phase-ended');
+    },
+  };
+}
+
+function delay(ms, signal) {
+  if (signal.aborted || ms <= 0) return Promise.resolve();
+  return new Promise(resolve => {
+    const finish = () => { clearTimeout(timer); signal.removeEventListener('abort', finish); resolve(); };
+    const timer = setTimeout(finish, ms);
+    signal.addEventListener('abort', finish, { once: true });
+  });
+}
+
+function transferResult() {
+  return { mbps: null, samples: [], bytes: 0, status: 'not-run', errors: [] };
+}
+
+function positiveNumber(value, fallback, name) {
+  const number = value ?? fallback;
+  if (!Number.isFinite(number) || number <= 0) throw new TypeError(`${name} must be a positive finite number`);
+  return number;
+}
+
+function validateOptions(options, kind) {
+  const streams = options.streams ?? 4;
+  const duration = options.duration ?? 10;
+  const monitorMinutes = options.monitorMinutes ?? 5;
+  if (![1, 4, 8].includes(streams)) throw new TypeError('streams must be 1, 4, or 8');
+  if (![5, 10, 20].includes(duration)) throw new TypeError('duration must be 5, 10, or 20 seconds');
+  if (![5, 15, 30].includes(monitorMinutes)) throw new TypeError('monitorMinutes must be 5, 15, or 30');
+  const budgetBytes = positiveNumber(options.budgetBytes, 200 * 1024 * 1024, 'budgetBytes');
+  if (!Number.isSafeInteger(budgetBytes)) throw new TypeError('budgetBytes must be a positive safe integer');
+  const probeIntervalMs = positiveNumber(options.probeIntervalMs, 1000, 'probeIntervalMs');
+  return {
+    streams, duration, monitorMinutes, budgetBytes, probeIntervalMs,
+    label: String(options.label ?? (kind === 'monitor' ? 'Stability monitor' : 'Speed test')).slice(0, 200),
+  };
+}
+
+class SpeedTestEngine {
+  constructor({
+    onEvent = () => {}, fetchImpl = globalThis.fetch,
+    // Timing and chunk-size overrides are dependency injection for deterministic
+    // tests, not user-facing test settings.
+    now = () => performance.now(), durationScale = 1,
+    idleProbeCount = 8, idleProbeGapMs = 150,
+    requestTimeoutMs = 6000, latencyTimeoutMs = Math.min(2000, requestTimeoutMs), sampleIntervalMs = 250,
+    initialDownloadBytes = 1024 * 1024, initialUploadBytes = 64 * 1024,
+    maxDownloadBytes = 16 * 1024 * 1024, maxUploadBytes = 4 * 1024 * 1024,
+  } = {}) {
+    if (typeof fetchImpl !== 'function') throw new TypeError('Fetch is unavailable in this browser');
+    this.onEvent = onEvent;
+    this.fetch = fetchImpl;
+    this.now = now;
+    this.config = {
+      durationScale, idleProbeCount, idleProbeGapMs, requestTimeoutMs, latencyTimeoutMs,
+      sampleIntervalMs, initialDownloadBytes, initialUploadBytes,
+      maxDownloadBytes, maxUploadBytes,
+    };
+    this._active = null;
+    this._sequence = 0;
+  }
+
+  get isRunning() { return this._active !== null; }
+
+  stop(reason = 'user') {
+    const context = this._active;
+    if (!context || context.controller.signal.aborted) return;
+    context.result.stopReason = String(reason);
+    context.controller.abort('user');
+    this._emit({ type: 'log', phase: context.phase, level: 'info', message: 'Stopping active requests.' });
+  }
+
+  _emit(event) {
+    // An optional display callback must not leave a measurement running forever.
+    try { this.onEvent(event); } catch { /* UI owns its callback errors. */ }
+  }
+
+  _start(options, kind) {
+    if (this.isRunning) throw new Error('A measurement is already running');
+    const settings = validateOptions(options, kind);
+    const startedAt = new Date().toISOString();
+    const result = {
+      id: globalThis.crypto?.randomUUID?.() ?? `velocity-${Date.now()}-${++this._sequence}`,
+      startedAt, kind, label: settings.label, status: 'failed', stopReason: null,
+      settings: {
+        streams: settings.streams, duration: settings.duration,
+        budgetBytes: settings.budgetBytes, monitorMinutes: settings.monitorMinutes,
+        endpoint: SPEED_ENDPOINT,
+      },
+      download: transferResult(), upload: transferResult(),
+      latency: { idle: [], download: [], upload: [], monitor: [] },
+      budget: { usedBytes: 0, limitBytes: settings.budgetBytes },
+      errors: [], durationSeconds: 0,
+    };
+    const context = {
+      result, options: settings, controller: new AbortController(),
+      started: this.now(), phase: kind === 'monitor' ? 'monitor' : 'idle',
+    };
+    this._active = context;
+    this._emit({ type: 'budget', phase: context.phase, ...result.budget });
+    return context;
+  }
+
+  _recordError(context, phase, message) {
+    if (context.result.errors.length < 100) context.result.errors.push(`${phase}: ${message}`);
+    this._emit({ type: 'log', phase, level: 'error', message });
+  }
+
+  _phase(context, phase, elapsedSeconds = 0, durationSeconds = 0) {
+    context.phase = phase;
+    this._emit({
+      type: 'phase', phase, elapsedSeconds, durationSeconds,
+      progress: durationSeconds > 0 ? Math.min(1, elapsedSeconds / durationSeconds) : 0,
+    });
+  }
+
+  _finish(context) {
+    context.result.durationSeconds = Math.max(0, (this.now() - context.started) / 1000);
+    if (context.controller.signal.aborted) context.result.status = 'cancelled';
+    if (this._active === context) this._active = null;
+    return context.result;
+  }
+
+  async run(options = {}) {
+    const context = this._start(options, 'speed');
+    const { result, controller } = context;
+    try {
+      this._phase(context, 'idle');
+      let consecutiveFailures = 0;
+      for (let index = 0; index < this.config.idleProbeCount && !controller.signal.aborted; index++) {
+        await this._latency(context, 'idle', controller.signal);
+        const latest = result.latency.idle.at(-1);
+        consecutiveFailures = latest?.ms === null ? consecutiveFailures + 1 : 0;
+        if (consecutiveFailures >= 3) break;
+        if (index + 1 < this.config.idleProbeCount) await delay(this.config.idleProbeGapMs, controller.signal);
+      }
+      // Reserve an independent half for each direction, so a fast download does
+      // not consume the entire upload allowance before upload even begins.
+      const downloadAllowance = Math.floor(context.options.budgetBytes / 2);
+      if (!controller.signal.aborted) await this._transfer(context, 'download', downloadAllowance);
+      if (!controller.signal.aborted) await this._transfer(context, 'upload', context.options.budgetBytes - downloadAllowance);
+      const phases = [result.download, result.upload];
+      const measured = phases.some(phase => phase.mbps !== null);
+      const latencyMeasured = result.latency.idle.some(sample => sample.ms !== null);
+      if (!measured) result.status = latencyMeasured ? 'partial' : 'failed';
+      else if (phases.some(phase => phase.status === 'failed' || phase.status === 'partial')) result.status = 'partial';
+      else if (phases.some(phase => phase.status === 'budget')) {
+        result.status = 'budget';
+        result.stopReason = 'payload budget reached';
+      } else if (result.errors.length) result.status = 'partial';
+      else result.status = 'completed';
+    } catch (error) {
+      this._recordError(context, context.phase, `Measurement failed: ${error.message}`);
+      result.status = 'failed';
+    } finally {
+      this._finish(context);
+    }
+    return result;
+  }
+
+  async monitor(options = {}) {
+    const context = this._start(options, 'monitor');
+    const durationMs = context.options.monitorMinutes * 60_000 * this.config.durationScale;
+    const monitorScope = scope(context.controller.signal, durationMs);
+    try {
+      this._phase(context, 'monitor', 0, durationMs / 1000);
+      this._emit({ type: 'log', phase: 'monitor', level: 'info', message: 'Monitoring zero-body HTTP requests while this page remains active.' });
+      while (!monitorScope.signal.aborted) {
+        const probeStarted = this.now();
+        await this._latency(context, 'monitor', monitorScope.signal);
+        this._phase(context, 'monitor', (this.now() - context.started) / 1000, durationMs / 1000);
+        await delay(Math.max(0, context.options.probeIntervalMs - (this.now() - probeStarted)), monitorScope.signal);
+      }
+      const samples = context.result.latency.monitor;
+      const successful = samples.filter(sample => sample.ms !== null).length;
+      context.result.status = !successful ? 'failed' : successful === samples.length ? 'completed' : 'partial';
+    } catch (error) {
+      this._recordError(context, 'monitor', `Monitor failed: ${error.message}`);
+    } finally {
+      monitorScope.close();
+      this._finish(context);
+    }
+    return context.result;
+  }
+
+  async _request(context, phase, { bytes, body, signal, onChunk = () => {}, timeoutMs = this.config.requestTimeoutMs }) {
+    const requestScope = scope(signal);
+    const timeout = setTimeout(() => requestScope.controller.abort('timeout'), timeoutMs);
+    let reader;
+    let fullyRead = false;
+    try {
+      const upload = body !== undefined;
+      const path = upload ? '__up' : `__down?bytes=${bytes}`;
+      const separator = upload ? '?' : '&';
+      const url = `${SPEED_ENDPOINT}/${path}${separator}velocity=${Date.now()}-${++this._sequence}`;
+      const response = await abortable(this.fetch(url, {
+        method: upload ? 'POST' : 'GET', body,
+        signal: requestScope.signal, mode: 'cors', credentials: 'omit',
+        cache: 'no-store', redirect: 'error',
+      }), requestScope.signal);
+      if (!response.ok || response.type === 'opaque') {
+        throw new RequestError(`HTTP ${response.status || 'unreadable response'}`, 'http');
+      }
+      const encoding = response.headers?.get('content-encoding');
+      if (!upload && bytes > 0 && encoding && encoding.toLowerCase() !== 'identity') {
+        throw new RequestError(`Compressed download (${encoding}); wire throughput cannot be verified`, 'encoding');
+      }
+      const contentType = response.headers?.get('content-type') ?? '';
+      if (!upload && bytes > 0 && /text\/html|application\/json/i.test(contentType)) {
+        throw new RequestError('Unexpected download response content type', 'body');
+      }
+      let received = 0;
+      if (response.body?.getReader) {
+        reader = response.body.getReader();
+        while (true) {
+          const { done, value } = await abortable(reader.read(), requestScope.signal);
+          if (done) break;
+          received += value.byteLength;
+          // Protect latency probes and malformed endpoint responses from becoming
+          // unbounded, unbudgeted downloads.
+          if (!upload && received > bytes) throw new RequestError('Download exceeded requested payload size', 'body');
+          onChunk(value.byteLength);
+        }
+      } else {
+        const buffer = await abortable(response.arrayBuffer(), requestScope.signal);
+        received = buffer.byteLength;
+        if (!upload && received > bytes) throw new RequestError('Download exceeded requested payload size', 'body');
+        onChunk(received);
+      }
+      fullyRead = true;
+      if (!upload && received !== bytes) throw new RequestError(`Incomplete response: expected ${bytes} bytes, received ${received}`, 'body');
+      return received;
+    } catch (error) {
+      if (requestScope.signal.aborted) throw abortError(requestScope.signal);
+      if (error instanceof RequestError) throw error;
+      throw new RequestError(`Network/CORS error: ${error.message || 'request failed'}`);
+    } finally {
+      clearTimeout(timeout);
+      if (reader && !fullyRead) {
+        // Never wait on a broken reader's cancellation implementation.
+        try { Promise.resolve(reader.cancel()).catch(() => {}); } catch { /* already closed */ }
+      }
+      if (reader) { try { reader.releaseLock(); } catch { /* pending read aborted */ } }
+      requestScope.close();
+    }
+  }
+
+  async _latency(context, phase, signal) {
+    if (signal.aborted) return;
+    const started = this.now();
+    let sample;
+    try {
+      await this._request(context, phase, { bytes: 0, signal, timeoutMs: this.config.latencyTimeoutMs });
+      if (signal.aborted) return;
+      sample = { t: (this.now() - context.started) / 1000, ms: Math.max(0, this.now() - started) };
+    } catch (error) {
+      if (signal.aborted) return;
+      sample = { t: (this.now() - context.started) / 1000, ms: null, error: error.message };
+      this._recordError(context, phase, error.message);
+    }
+    context.result.latency[phase].push(sample);
+    this._emit({ type: 'latency', phase, ...sample });
+  }
+
+  _reserve(context, phase, requested, allowanceRemaining) {
+    const budget = context.result.budget;
+    const bytes = Math.max(0, Math.floor(Math.min(requested, allowanceRemaining, budget.limitBytes - budget.usedBytes)));
+    if (bytes > 0) {
+      budget.usedBytes += bytes;
+      this._emit({ type: 'budget', phase, ...budget });
+    }
+    return bytes;
+  }
+
+  _uploadBody(bytes) {
+    const body = new Uint8Array(bytes);
+    if (globalThis.crypto?.getRandomValues) {
+      for (let offset = 0; offset < bytes; offset += 65536) {
+        globalThis.crypto.getRandomValues(body.subarray(offset, Math.min(bytes, offset + 65536)));
+      }
+    } else {
+      // Non-secret pseudo-random payload fallback for old browsers; these bytes
+      // are traffic only and never substitute for measured observations.
+      let state = 0x6d2b79f5;
+      for (let index = 0; index < bytes; index++) {
+        state ^= state << 13; state ^= state >>> 17; state ^= state << 5;
+        body[index] = state & 255;
+      }
+    }
+    return body;
+  }
+
+  async _transfer(context, phase, allowance) {
+    const data = context.result[phase];
+    const durationMs = context.options.duration * 1000 * this.config.durationScale;
+    const phaseScope = scope(context.controller.signal, durationMs);
+    const started = this.now();
+    const upload = phase === 'upload';
+    let reserved = 0;
+    let budgetHit = false;
+    let lastBytes = 0;
+    let lastSample = started;
+    const activeDownloads = new Set();
+    this._phase(context, phase, 0, durationMs / 1000);
+    const sample = () => {
+      const timestamp = this.now();
+      const elapsed = timestamp - lastSample;
+      if (elapsed < 1) return;
+      const mbps = (data.bytes - lastBytes) * 8 / (elapsed * 1000);
+      const point = { t: (timestamp - started) / 1000, mbps };
+      for (const request of activeDownloads) {
+        const intervalBytes = request.bytes - request.sampledBytes;
+        if (intervalBytes > 0) request.contributions.push({ point, bytes: intervalBytes, elapsed });
+        request.sampledBytes = request.bytes;
+      }
+      data.samples.push(point);
+      this._emit({ type: 'throughput', phase, ...point, bytes: data.bytes, progress: Math.min(1, (timestamp - started) / durationMs) });
+      lastSample = timestamp;
+      lastBytes = data.bytes;
+    };
+    const ticker = setInterval(sample, this.config.sampleIntervalMs);
+    const probeLoop = async () => {
+      while (!phaseScope.signal.aborted) {
+        const probeStarted = this.now();
+        await this._latency(context, phase, phaseScope.signal);
+        await delay(Math.max(0, context.options.probeIntervalMs - (this.now() - probeStarted)), phaseScope.signal);
+      }
+    };
+    const worker = async () => {
+      let chunkSize = upload ? this.config.initialUploadBytes : this.config.initialDownloadBytes;
+      let failures = 0;
+      while (!phaseScope.signal.aborted && this.now() - started < durationMs) {
+        const bytes = this._reserve(context, phase, chunkSize, allowance - reserved);
+        if (!bytes) { budgetHit = true; return; }
+        reserved += bytes;
+        const requestStarted = this.now();
+        const received = { bytes: 0, sampledBytes: 0, contributions: [] };
+        if (!upload) activeDownloads.add(received);
+        try {
+          await this._request(context, phase, {
+            bytes, body: upload ? this._uploadBody(bytes) : undefined,
+            signal: phaseScope.signal,
+            onChunk: size => {
+              if (!upload) { data.bytes += size; received.bytes += size; }
+            },
+          });
+          if (upload) data.bytes += bytes;
+          failures = 0;
+          const elapsed = Math.max(1, this.now() - requestStarted);
+          const maxChunk = upload ? this.config.maxUploadBytes : this.config.maxDownloadBytes;
+          chunkSize = Math.min(maxChunk, Math.max(64 * 1024, Math.round(bytes * 750 / elapsed)));
+        } catch (error) {
+          if (phaseScope.signal.aborted) break;
+          // A malformed/truncated/failed response is not validated test traffic.
+          // Remove its provisional live progress, including its contributions
+          // to earlier intervals. Normal phase cutoff keeps genuinely received
+          // download bytes; aborted POST requests are never acknowledged.
+          if (!upload && received.bytes) {
+            data.bytes -= received.bytes;
+            lastBytes -= received.sampledBytes;
+            for (const contribution of received.contributions) {
+              contribution.point.mbps = Math.max(0, contribution.point.mbps - contribution.bytes * 8 / (contribution.elapsed * 1000));
+            }
+          }
+          failures++;
+          if (data.errors.length < 50) data.errors.push(error.message);
+          this._recordError(context, phase, error.message);
+          if (failures >= 3) return;
+          await delay(150, phaseScope.signal);
+        } finally {
+          activeDownloads.delete(received);
+        }
+      }
+    };
+    const probes = probeLoop();
+    try {
+      await Promise.all(Array.from({ length: context.options.streams }, () => worker()));
+    } finally {
+      clearInterval(ticker);
+      sample();
+      phaseScope.close();
+      await probes;
+    }
+    const elapsedMs = Math.max(1, this.now() - started);
+    data.mbps = data.bytes > 0 ? data.bytes * 8 / (elapsedMs * 1000) : null;
+    if (data.bytes === 0) data.samples = [];
+    if (context.controller.signal.aborted) data.status = 'cancelled';
+    else if (data.bytes === 0) data.status = budgetHit ? 'budget' : 'failed';
+    else if (data.errors.length) data.status = 'partial';
+    else if (budgetHit) data.status = 'budget';
+    else data.status = 'completed';
+    if (budgetHit) this._emit({ type: 'log', phase, level: 'info', message: `${phase} payload allowance reached; partial-duration result retained.` });
+    this._phase(context, phase, elapsedMs / 1000, durationMs / 1000);
+  }
+}
+
+return {SPEED_ENDPOINT,SpeedTestEngine};
+})();
+__modules.app = (() => {
+const { SpeedTestEngine } = __modules.engine;
+const { HistoryStore, summarizeLatency, summarizeResult, compareResults, toCSV } = __modules.data;
+const $ = id => document.getElementById(id);
+const number = (value, digits = 1) => Number.isFinite(value) ? value.toFixed(digits) : '—';
+const set = (id, value) => { $(id).textContent = value; };
+const colors = {download:'#29d3df', upload:'#b997ff', idle:'#f6be66', monitor:'#40d8ac'};
+const store = new HistoryStore();
+let history = store.load();
+let busy = false;
+let stopRequested = false;
+let current = null;
+let live = null;
+let audible = false;
+let audioContext;
+let toastTimer;
+let phase = 'idle';
+const plots = new Map();
+
+function toast(message) {
+  set('toast', message);
+  $('toast').hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4000);
+}
+
+function log(message, level = 'info') {
+  const line = document.createElement('div');
+  line.className = `log-line ${level}`;
+  line.textContent = `${new Date().toLocaleTimeString()}  ${message}`;
+  $('logContent').append(line);
+  while ($('logContent').childElementCount > 300) $('logContent').firstChild.remove();
+  $('logContent').scrollTop = $('logContent').scrollHeight;
+}
+
+function tone(done = false) {
+  if (!audible) return;
+  try {
+    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+    audioContext.resume();
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.frequency.value = done ? 660 : 440;
+    gain.gain.setValueAtTime(0.025, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.12);
+    osc.connect(gain).connect(audioContext.destination);
+    osc.start(); osc.stop(audioContext.currentTime + 0.13);
+  } catch { /* Audio is optional; measurements never depend on it. */ }
+}
+
+// Real sample times are retained. Nulls split a line instead of concealing failures.
+function plot(id, series, {unit = 'Mbps', time = 'seconds', p95 = null} = {}) {
+  plots.set(id, {series, options:{unit,time,p95}});
+  const canvas = $(id);
+  const width = Math.max(200, canvas.clientWidth);
+  const height = Math.max(100, canvas.clientHeight);
+  const scale = window.devicePixelRatio || 1;
+  canvas.width = width * scale; canvas.height = height * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  const points = series.flatMap(s => s.points).filter(p => Number.isFinite(p.x));
+  const values = points.filter(p => Number.isFinite(p.y)).map(p => p.y);
+  const left = 52, right = width - 16, top = 24, bottom = height - 31;
+  const minX = time === 'dates' && points.length ? Math.min(...points.map(p=>p.x)) : 0;
+  const maxX = Math.max(minX + (time === 'dates' ? 60000 : 1), ...points.map(p=>p.x));
+  const maxY = Math.max(unit === 'ms' ? 20 : 10, ...values, p95 || 0) * 1.15;
+  const x = n => left + (n-minX)/(maxX-minX)*(right-left);
+  const y = n => bottom - n/maxY*(bottom-top);
+  ctx.font = '10px ui-monospace, monospace';
+  ctx.lineWidth = 1;
+  for (let i=0;i<4;i++) {
+    const v = maxY * i/3;
+    ctx.strokeStyle = '#223044'; ctx.beginPath(); ctx.moveTo(left,y(v)); ctx.lineTo(right,y(v)); ctx.stroke();
+    ctx.fillStyle='#8392a9'; ctx.textAlign='right'; ctx.fillText(v>=100 ? v.toFixed(0) : v.toFixed(1),left-8,y(v)+3);
+  }
+  ctx.textAlign='left'; ctx.fillStyle='#a8b4c7'; ctx.fillText(unit,left,13);
+  for (let i=0;i<3;i++) {
+    const v=minX+(maxX-minX)*i/2;
+    const label=time==='dates' ? new Date(v).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : `${Math.round(v)}s`;
+    ctx.textAlign=i===0?'left':i===2?'right':'center'; ctx.fillText(label,x(v),height-9);
+  }
+  if (Number.isFinite(p95)) {
+    ctx.setLineDash([4,4]); ctx.strokeStyle='#f6be6680'; ctx.beginPath(); ctx.moveTo(left,y(p95));ctx.lineTo(right,y(p95));ctx.stroke();ctx.setLineDash([]);
+    ctx.textAlign='right';ctx.fillStyle='#f6be66';ctx.fillText(`p95 ${number(p95)} ms`,right,y(p95)-5);
+  }
+  series.forEach(s => {
+    ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.lineWidth=2;ctx.lineJoin='round';ctx.beginPath();
+    let connected=false;
+    s.points.forEach(p => {
+      if (!Number.isFinite(p.y)) { connected=false; return; }
+      if(connected)ctx.lineTo(x(p.x),y(p.y));else ctx.moveTo(x(p.x),y(p.y));
+      connected=true;
+    });ctx.stroke();
+    if (s.points.length<=2 || time==='dates') s.points.forEach(p=>{if(Number.isFinite(p.y)){ctx.beginPath();ctx.arc(x(p.x),y(p.y),3,0,Math.PI*2);ctx.fill();}});
+    s.points.filter(p=>p.y===null).forEach(p=>{ctx.strokeStyle='#fb7185';ctx.beginPath();ctx.moveTo(x(p.x)-3,bottom-8);ctx.lineTo(x(p.x)+3,bottom-2);ctx.moveTo(x(p.x)+3,bottom-8);ctx.lineTo(x(p.x)-3,bottom-2);ctx.stroke();});
+  });
+  if (!points.length) {ctx.fillStyle='#72829a';ctx.textAlign='center';ctx.fillText('Measurements will appear here', (left+right)/2,(top+bottom)/2);}
+}
+
+function plotResult(result) {
+  plot('throughputChart',['download','upload'].map(key=>({color:colors[key],points:(result?.[key]?.samples||[]).map(p=>({x:p.t,y:p.mbps}))})));
+  const latency = result?.latency || {};
+  const summary = summarizeLatency(latency.monitor || []);
+  plot('latencyChart', ['idle','download','upload','monitor'].map(key=>({color:colors[key],points:(latency[key]||[]).map(p=>({x:p.t,y:p.ms}))})),{unit:'ms',p95:summary.p95});
+}
+
+function gauge(value, unit, title, hint) {
+  set('gaugeValue',number(value));set('gaugeUnit',unit);set('gaugePhase',title);set('gaugeHint',hint);
+  const fraction=Number.isFinite(value) ? Math.min(1, Math.log10(1+value)/Math.log10(unit==='ms'?1001:2501)) : 0;
+  $('gaugeArc').style.strokeDashoffset='0';
+  $('gaugeArc').style.strokeDasharray=`${fraction*100} 100`;
+  $('gaugeArc').style.stroke=colors[phase] || colors.download;
+}
+
+function showMonitor(result) {
+  const samples=result.latency.monitor;
+  const s=summarizeLatency(samples);
+  set('monitorCount',String(s.count));set('monitorFailures',`${s.failed} / ${number(Number.isFinite(s.failureRate)?s.failureRate*100:null)}%`);set('monitorP95',`${number(s.p95)} ms`);
+  let gaps=0;
+  for(let i=1;i<samples.length;i++)if(samples[i].t-samples[i-1].t>3)gaps++;
+  set('monitorGaps',String(gaps));
+}
+
+function showSummary(result) {
+  const s=summarizeResult(result);
+  const base=result.kind==='monitor' ? s.monitor : s.idle;
+  set('downloadValue',number(result.download?.mbps)); set('uploadValue',number(result.upload?.mbps));
+  set('pingValue',number(base.median)); set('jitterValue',number(base.jitter));
+  set('downloadHint',result.kind==='monitor'?'Not run in monitor mode':`Phase: ${result.download?.status || 'not run'}`);
+  set('uploadHint',result.kind==='monitor'?'Not run in monitor mode':`Phase: ${result.upload?.status || 'not run'}`);
+  set('pingHint',`Median · p95 ${number(base.p95)} ms`);set('jitterHint',`${base.count} successes · ${base.failed} failed probes`);
+  for(const [prefix,values] of [['idle',s.idle],['download',s.downloadLoaded],['upload',s.uploadLoaded]]) {
+    set(`${prefix}Median`,number(values.median));set(`${prefix}P95`,number(values.p95));
+  }
+  set('downloadAdded',Number.isFinite(s.downloadAdded)?`${s.downloadAdded>=0?'+':''}${number(s.downloadAdded)} ms`:'—');
+  set('uploadAdded',Number.isFinite(s.uploadAdded)?`${s.uploadAdded>=0?'+':''}${number(s.uploadAdded)} ms`:'—');
+  set('bufferGrade',s.bufferbloatGrade || '—');
+  set('qualitySummary',result.kind==='monitor'?'Stability session':s.bufferbloatGrade?`Load response: ${s.bufferbloatGrade}`:'Load assessment unavailable');
+  set('qualityDetail',s.bufferbloatGrade?'Grade reflects measured extra HTTP latency during this test’s traffic. Higher bandwidth is not guaranteed.':'Both transfer directions and enough valid latency probes are needed for an assessment.');
+  capabilities(result,s);
+  $('monitorSummary').hidden=result.kind!=='monitor';
+  if(result.kind==='monitor')showMonitor(result);
+  setBudget(result.budget);
+  const issues=[];
+  if(result.status!=='completed')issues.push(`Run status: ${result.status}${result.stopReason?` (${result.stopReason})`:''}. Incomplete measurements are not a full test.`);
+  if(result.kind==='monitor')issues.push('Failed HTTP probes can reflect the endpoint, browser, or network. They are not a packet-loss measurement.');
+  for(const error of result.errors || [])issues.push(typeof error==='string'?error:JSON.stringify(error));
+  $('resultIssues').textContent=[...new Set(issues)].slice(0,5).join(' ');
+  $('resultIssues').hidden=!issues.length;
+}
+
+function capabilities(result,s) {
+  const valid=result.kind==='speed'&&result.status==='completed';
+  const down=result.download?.mbps, up=result.upload?.mbps;
+  set('gamingScore',valid&&Number.isFinite(s.idle.median)&&Number.isFinite(s.idle.jitter)?(s.idle.median<40&&s.idle.jitter<10?'Low idle delay':'Delay may affect play'):'Not assessed');
+  set('streamingScore',valid&&Number.isFinite(down)?(down>=25?'4K bandwidth available':down>=8?'HD bandwidth available':'Limited bandwidth'):'Not assessed');
+  set('callingScore',valid&&Number.isFinite(up)?(up>=5&&Number.isFinite(s.idle.jitter)&&s.idle.jitter<15?'HD call bandwidth':'Quality may vary'):'Not assessed');
+  set('cloudScore',valid&&Number.isFinite(up)?`${number(up/8)} MB/s upload`:'Not assessed');
+}
+
+function setBudget(budget) {
+  const used=budget?.usedBytes || 0,limit=budget?.limitBytes || Number($('budget').value)*1e6;
+  set('budgetUsed',`${number(used/1e6)} MB`);set('budgetLimit',`${number(limit/1e6,0)} MB`);
+  $('budgetProgress').max=limit; $('budgetProgress').value=used;
+}
+
+function event(event) {
+  if(event.type==='log') {log(event.message,event.level);return;}
+  if(event.type==='budget') {setBudget(event);return;}
+  if(!live)return;
+  if(event.type==='phase') {
+    phase=event.phase;
+    set('statusText',phase==='monitor'?'Monitoring connection':`Measuring ${phase==='idle'?'idle latency':phase}`);
+    const remaining=Number.isFinite(event.durationSeconds)?` · ${Math.max(0,Math.ceil(event.durationSeconds-(event.elapsedSeconds||0)))}s left`:'';
+    gauge(null,phase==='idle'||phase==='monitor'?'ms':'Mbps',phase.toUpperCase(),`${live.label || 'Current run'}${remaining}`);
+    return;
+  }
+  if(event.type==='latency') {
+    live.latency[event.phase].push({t:event.t,ms:event.ms,error:event.error});
+    if(event.phase==='idle'||event.phase==='monitor') {
+      const s=summarizeLatency(live.latency[event.phase]);
+      set('pingValue',number(s.median));set('jitterValue',number(s.jitter));set('pingHint',`Median · p95 ${number(s.p95)} ms`);
+      gauge(event.ms,'ms',event.phase.toUpperCase(),event.ms===null?'Probe failed':`${s.count} successful probes`);
+    }
+    if(event.phase==='monitor')showMonitor(live);
+    plotResult(live);
+  }
+  if(event.type==='throughput') {
+    live[event.phase].samples.push({t:event.t,mbps:event.mbps});
+    set(`${event.phase}Value`,number(event.mbps));
+    set(`${event.phase}Hint`,'Current interval · final average follows');
+    gauge(event.mbps,'Mbps',event.phase.toUpperCase(),`${Math.round((event.progress||0)*100)}% · ${number(event.bytes/1e6)} MB measured`);
+    plotResult(live);
+  }
+}
+const engine = new SpeedTestEngine({onEvent:event});
+
+function blank(kind='speed',label='') {
+  return {kind,label,download:{samples:[]},upload:{samples:[]},latency:{idle:[],download:[],upload:[],monitor:[]}};
+}
+
+function controls() {
+  const mode=$('mode').value;
+  $('monitorField').hidden=mode!=='monitor';
+  for(const id of ['durationField','streamsField','budgetField'])if($(id))$(id).hidden=mode==='monitor';
+  set('modeHelp',mode==='compare'?'Runs 1 stream, then your selected multiple-stream setting. The total payload budget is shared equally between both runs.':mode==='monitor'?'Lightweight HTTP probes for 5–30 minutes. Keep this tab visible and your device awake.':'Measures idle latency, then download and upload with simultaneous latency probes.');
+  set('startBtn',mode==='compare'?'Compare streams':mode==='monitor'?'Start monitoring':'Start speed test');
+  if(mode==='compare'&&$('streams').value==='1')$('streams').value='4';
+  const single=$('streams').querySelector('option[value="1"]');if(single)single.disabled=mode==='compare';
+  setBudget(null);
+}
+
+function setBusy(value) {
+  busy=value;
+  $('settings').querySelectorAll('input,select,button[type="submit"]').forEach(el=>el.disabled=value);
+  $('stopBtn').disabled=!value;$('resetBtn').disabled=value;$('clearHistory').disabled=value;
+  set('statusBadge',value?'RUNNING':'READY');
+}
+
+async function start(e) {
+  e.preventDefault();if(busy)return;
+  stopRequested=false;current=null;setBusy(true);tone();
+  const mode=$('mode').value;
+  const options={duration:Number($('duration').value),streams:Number($('streams').value),budgetBytes:Number($('budget').value)*1e6,label:$('label').value.trim(),monitorMinutes:Number($('monitorMinutes').value),probeIntervalMs:mode==='monitor'?1000:400};
+  const sequence=mode==='compare'?[1,options.streams]:[options.streams];
+  const pair=[];
+  if(mode==='compare')options.budgetBytes=Math.floor(options.budgetBytes/2);
+  try {
+    for(const streams of sequence) {
+      if(stopRequested)break;
+      const label=mode==='compare'?`${options.label || 'Stream comparison'} · ${streams} stream${streams===1?'':'s'}`:options.label;
+      live=blank(mode==='monitor'?'monitor':'speed',label);
+      clearReadings();$('monitorSummary').hidden=mode!=='monitor';
+      if(mode==='monitor')showMonitor(live);
+      log(`Starting ${mode==='monitor'?'monitor':`${streams}-stream speed test`}${label?` · ${label}`:''}`);
+      const result=await (mode==='monitor'?engine.monitor({...options,label}):engine.run({...options,streams,label}));
+      current=result;pair.push(result);history=store.add(result);renderHistory();showSummary(result);plotResult(result);
+      set('statusBadge',result.status.toUpperCase());set('statusText',`${mode==='monitor'?'Monitor':'Test'} ${result.status}`);
+      gauge(mode==='monitor'?summarizeLatency(result.latency.monitor).median:result.download.mbps,mode==='monitor'?'ms':'Mbps',result.status.toUpperCase(),result.label || 'Result saved on this device');
+      log(`Finished: ${result.status}`,result.status==='completed'?'success':'warn');
+      if(result.status==='cancelled'||result.status==='failed')break;
+    }
+    if(pair.length===2) { $('compareA').value=pair[0].id;$('compareB').value=pair[1].id;renderComparison(); }
+    tone(true);
+  } catch(error) {
+    log(error.message,'error');toast(`Unable to finish: ${error.message}`);set('statusText','Test failed');
+  } finally {
+    live=null;setBusy(false);if(current)set('statusBadge',current.status.toUpperCase());
+    persistenceWarning();
+  }
+}
+
+function clearReadings() {
+  for(const id of ['downloadValue','uploadValue','pingValue','jitterValue','idleMedian','idleP95','downloadMedian','downloadP95','downloadAdded','uploadMedian','uploadP95','uploadAdded','bufferGrade'])set(id,'—');
+  for(const id of ['downloadHint','uploadHint','pingHint','jitterHint'])set(id,'Awaiting measurement');
+  for(const id of ['gamingScore','streamingScore','callingScore','cloudScore'])set(id,'Not assessed');
+  set('qualitySummary','Waiting for measurements');set('qualityDetail','Measured latency under download and upload traffic.');
+  $('resultIssues').hidden=true;plotResult(null);setBudget(null);
+}
+
+function persistenceWarning() {
+  $('storageWarning').hidden=!store.warning;if(store.warning)set('storageWarning',store.warning);
+}
+
+function labelFor(r) {return `${new Date(r.startedAt).toLocaleString()} · ${r.label || (r.kind==='monitor'?'Monitor':`${r.settings.streams} streams`)} · ${r.status}`;}
+
+function renderHistory() {
+  set('historyCount',`${history.length} saved ${history.length===1?'run':'runs'}`);
+  $('historyBody').replaceChildren();
+  if(!history.length) {
+    const row=$('historyBody').insertRow();const cell=row.insertCell();cell.colSpan=8;cell.textContent='Your saved tests will appear here. Results stay on this device.';cell.className='empty-row';
+  }
+  for(const r of history) {
+    const s=summarizeLatency(r.latency[r.kind==='monitor'?'monitor':'idle']);
+    const row=$('historyBody').insertRow();
+    const values=[new Date(r.startedAt).toLocaleString(),r.label || 'Untitled',r.kind==='monitor'?`${r.settings.monitorMinutes}m monitor`:`${r.settings.streams} streams · ${r.settings.duration}s`,number(r.download.mbps),number(r.upload.mbps),number(s.median),r.status];
+    values.forEach(value=>{row.insertCell().textContent=value;});
+    const actions=row.insertCell();
+    const view=document.createElement('button');view.type='button';view.className='table-btn';view.textContent='View';view.setAttribute('aria-label',`View ${labelFor(r)}`);
+    view.addEventListener('click',()=>{if(busy){toast('Stop the current test before viewing a saved run.');return;}current=r;showSummary(r);plotResult(r);phase='download';gauge(r.kind==='monitor'?s.median:r.download.mbps,r.kind==='monitor'?'ms':'Mbps','SAVED RUN',labelFor(r));set('statusText',`Viewing ${labelFor(r)}`);set('statusBadge',r.status.toUpperCase());});
+    const edit=document.createElement('button');edit.type='button';edit.className='table-btn';edit.textContent='Label';edit.setAttribute('aria-label',`Rename ${labelFor(r)}`);
+    edit.addEventListener('click',()=>{const label=window.prompt('Label this run (Wi-Fi, Ethernet, VPN on, router change…)',r.label);if(label!==null){history=store.rename(r.id,label.slice(0,80));renderHistory();persistenceWarning();}});
+    actions.append(view,edit);
+  }
+  for(const id of ['compareA','compareB']) {
+    const old=$(id).value;$(id).replaceChildren();
+    history.forEach(r=>{const option=document.createElement('option');option.value=r.id;option.textContent=labelFor(r);$(id).append(option);});
+    if(history.some(r=>r.id===old))$(id).value=old;else if(id==='compareA'&&history.length>1)$(id).value=history[1].id;
+  }
+  $('exportCsv').disabled=!history.length;
+  renderTrend();renderComparison();persistenceWarning();
+}
+
+function renderTrend() {
+  const metric=$('trendMetric').value;
+  const records=history.filter(r=>r.kind==='speed').slice().sort((a,b)=>new Date(a.startedAt)-new Date(b.startedAt));
+  const points=records.map(r=>({x:new Date(r.startedAt).getTime(),y:['completed','partial','budget'].includes(r.status)?(metric==='ping'?summarizeLatency(r.latency.idle).median:r[metric].bytes>0?r[metric].mbps:null):null}));
+  plot('trendChart',[{color:metric==='ping'?colors.idle:colors[metric],points}],{unit:metric==='ping'?'ms':'Mbps',time:'dates'});
+}
+
+function renderComparison() {
+  const a=history.find(r=>r.id===$('compareA').value), b=history.find(r=>r.id===$('compareB').value);
+  $('comparisonBody').replaceChildren();
+  if(!a||!b||a.id===b.id){set('comparisonNote','Save two runs, then select a baseline (A) and a new result (B).');return;}
+  if(a.kind!==b.kind){set('comparisonNote','Choose two speed tests or two monitor sessions to compare like measurements.');return;}
+  const settingsDiffer=['duration','budgetBytes','endpoint','monitorMinutes'].some(k=>a.settings[k]!==b.settings[k]);
+  set('comparisonNote',`${settingsDiffer?'Different test settings: interpret the changes cautiously. ':''}${a.status!=='completed'||b.status!=='completed'?'One or both runs are incomplete; partial values are not a full comparison. ':''}Change = B minus A. ${a.settings.streams!==b.settings.streams?'Stream count differs.':''}`);
+  const rows=compareResults(a,b);
+  for(const item of rows) {
+    const row=$('comparisonBody').insertRow();
+    row.insertCell().textContent=item.label || item.metric;
+    row.insertCell().textContent=`${number(item.a)} ${item.unit}`;
+    row.insertCell().textContent=`${number(item.b)} ${item.unit}`;
+    const cell=row.insertCell();
+    if(Number.isFinite(item.delta)) {
+      cell.textContent=`${item.delta>=0?'+':''}${number(item.delta)} ${item.unit}${Number.isFinite(item.percent)?` (${item.percent>=0?'+':''}${number(item.percent)}%)`:''}`;
+      if(item.delta!==0)cell.className=(item.better==='higher'?item.delta>0:item.delta<0)?'positive':'negative';
+    }else cell.textContent='Unavailable';
+  }
+}
+
+$('settings').addEventListener('submit',start);
+$('mode').addEventListener('change',controls);$('budget').addEventListener('change',()=>setBudget(null));
+$('stopBtn').addEventListener('click',()=>{stopRequested=true;engine.stop('user');$('stopBtn').disabled=true;set('statusText','Stopping active requests…');});
+$('resetBtn').addEventListener('click',()=>{if(busy)return;current=null;clearReadings();$('monitorSummary').hidden=true;gauge(0,'Mbps','READY','Choose a test to begin');set('statusBadge','READY');set('statusText','Ready to measure');});
+$('soundToggle').addEventListener('click',()=>{audible=!audible;$('soundToggle').setAttribute('aria-pressed',String(audible));$('soundToggle').textContent=audible?'Sound on':'Sound off';tone();});
+$('logsToggle').addEventListener('click',()=>{$('logDrawer').hidden=false;$('logsToggle').setAttribute('aria-expanded','true');$('closeLogs').focus();});
+$('closeLogs').addEventListener('click',()=>{$('logDrawer').hidden=true;$('logsToggle').setAttribute('aria-expanded','false');$('logsToggle').focus();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('logDrawer').hidden)$('closeLogs').click();});
+$('clearLogs').addEventListener('click',()=>{$('logContent').replaceChildren();});
+$('clearHistory').addEventListener('click',()=>{if(busy)return;if(window.confirm('Delete all saved test history on this device?')){history=store.clear();renderHistory();}});
+$('exportCsv').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([toCSV(history)],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=`velocity-history-${new Date().toISOString().slice(0,10)}.csv`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+for(const id of ['compareA','compareB'])$(id).addEventListener('change',renderComparison);
+$('trendMetric').addEventListener('change',renderTrend);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&busy){stopRequested=true;engine.stop('background');log('Test interrupted because the tab was hidden. Keep it visible for reliable timings.','warn');}});
+window.addEventListener('offline',()=>log('Browser reports offline. Probes will show failures until connectivity returns.','warn'));
+window.addEventListener('online',()=>log('Browser reports connectivity restored.'));
+window.addEventListener('resize',()=>{for(const [id,{series,options}] of plots)plot(id,series,options);});
+window.addEventListener('storage',()=>{if(!busy){history=store.load();renderHistory();}});
+controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
+log('Velocity 3.0 ready. No measurements or external requests until you start a test.');
+
+return {};
+})();
+})();
+</script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to test</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="./" aria-label="Velocity home">
+          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8L21 9h-8z"/></svg></span>
+          <span class="brand-word">VELOCITY<span class="brand-tagline">CONNECTION INTELLIGENCE</span></span>
+        </a>
+        <div class="header-actions">
+          <button id="soundToggle" class="button button-quiet" type="button" aria-pressed="false" title="Toggle sound feedback">Sound off</button>
+          <button id="logsToggle" class="button button-quiet" type="button" aria-controls="logDrawer" aria-expanded="false"><span aria-hidden="true" class="terminal-icon">&gt;_</span> Logs</button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="container">
+      <section class="page-intro" aria-labelledby="pageTitle">
+        <div><p class="eyebrow">YOUR NETWORK, MEASURED</p><h1 id="pageTitle">A clearer picture of<br class="mobile-break"> your connection.</h1><p class="intro-copy">Speed is just the beginning. See latency under load, find interruptions, and compare what changed.</p></div>
+        <div class="endpoint"><span id="statusBadge" class="status-badge">READY</span><span id="statusText" role="status">Ready to test</span><span id="endpointText">Cloudflare · global edge network</span></div>
+      </section>
+
+      <section class="panel settings-panel" aria-labelledby="settingsTitle">
+        <div class="section-heading compact"><h2 id="settingsTitle">Make it your test</h2><span class="quiet-tag">No account needed</span></div>
+        <form id="settings">
+          <div class="settings-grid">
+            <label class="field mode-field" for="mode"><span>Test mode</span><select id="mode" name="mode"><option value="speed">Speed &amp; loaded latency</option><option value="compare">Single vs. multi-stream</option><option value="monitor">Connection stability</option></select></label>
+            <label id="durationField" class="field" for="duration"><span>Transfer duration</span><select id="duration" name="duration"><option value="5">Quick · 5 sec / phase</option><option value="10" selected>Standard · 10 sec / phase</option><option value="20">Extended · 20 sec / phase</option></select></label>
+            <label id="streamsField" class="field" for="streams"><span>Parallel streams</span><select id="streams" name="streams"><option value="1">1 stream</option><option value="4" selected>4 streams</option><option value="8">8 streams</option></select></label>
+            <label id="budgetField" class="field" for="budget"><span>Data budget</span><select id="budget" name="budget"><option value="50">50 MB</option><option value="250" selected>250 MB</option><option value="1000">1,000 MB</option></select></label>
+            <label id="monitorField" class="field" for="monitorMinutes" hidden><span>Monitor duration</span><select id="monitorMinutes" name="monitorMinutes"><option value="5">5 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label>
+            <label class="field label-field" for="label"><span>Run label <span class="optional">optional</span></span><input id="label" name="label" maxlength="80" placeholder="e.g. Office Wi-Fi, VPN on" autocomplete="off"></label>
+          </div>
+          <div class="settings-footer"><p id="modeHelp" class="help-text">Measure idle latency, download, and upload, with latency probes running during each transfer.</p><div class="test-actions"><button id="resetBtn" class="button button-quiet" type="button">Reset view</button><button id="stopBtn" class="button button-stop" type="button" disabled><span aria-hidden="true">■</span> Stop</button><button id="startBtn" class="button button-primary" type="submit"><span aria-hidden="true">↗</span> Start test</button></div></div>
+        </form>
+      </section>
+
+      <section class="panel measurement-panel" aria-labelledby="liveTitle">
+        <div class="section-heading"><div><p class="eyebrow">LIVE MEASUREMENTS</p><h2 id="liveTitle">The connection, as it happens.</h2></div><span class="quiet-tag">Real requests. Real results.</span></div>
+        <div class="metric-grid">
+          <article class="metric-card download-card"><h3><span aria-hidden="true">↓</span> Download</h3><p class="metric-number"><span id="downloadValue">—</span><span class="unit">Mbps</span></p><p id="downloadHint" class="metric-hint">Waiting for a test</p></article>
+          <article class="metric-card upload-card"><h3><span aria-hidden="true">↑</span> Upload</h3><p class="metric-number"><span id="uploadValue">—</span><span class="unit">Mbps</span></p><p id="uploadHint" class="metric-hint">Waiting for a test</p></article>
+          <article class="metric-card"><h3><span class="latency-symbol" aria-hidden="true">⌁</span> Idle latency</h3><p class="metric-number"><span id="pingValue">—</span><span class="unit">ms</span></p><p id="pingHint" class="metric-hint">Median HTTP round trip</p></article>
+          <article class="metric-card"><h3><span class="jitter-symbol" aria-hidden="true">≋</span> Jitter</h3><p class="metric-number"><span id="jitterValue">—</span><span class="unit">ms</span></p><p id="jitterHint" class="metric-hint">Consecutive latency variation</p></article>
+        </div>
+        <div class="live-layout">
+          <div class="gauge-panel">
+            <div class="gauge" role="img" aria-label="Live test measurement; the current value is shown below">
+              <svg class="gauge-svg" viewBox="0 0 280 240" aria-hidden="true"><defs><linearGradient id="gaugeGradient" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#2dd4bf"/><stop offset="65%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs><path class="gauge-track" d="M 53 203 A 112 112 0 1 1 227 203" pathLength="100"/><path id="gaugeArc" class="gauge-arc" d="M 53 203 A 112 112 0 1 1 227 203" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/><path class="gauge-inner" d="M 66 192 A 95 95 0 1 1 214 192"/></svg>
+              <div class="gauge-reading"><span id="gaugePhase" class="gauge-phase">READY WHEN YOU ARE</span><span id="gaugeValue" class="gauge-value">—</span><span id="gaugeUnit" class="gauge-unit">Mbps</span></div>
+            </div>
+            <p id="gaugeHint" class="gauge-hint">Start a test to see your connection in motion.</p>
+            <div class="budget"><div class="budget-label"><span>Payload budget</span><span><b id="budgetUsed">0 MB</b> / <span id="budgetLimit">250 MB</span></span></div><progress id="budgetProgress" value="0" max="100" aria-label="Data budget used">0%</progress><p>Includes reserved requests; network overhead is extra.</p></div>
+          </div>
+          <div class="live-charts">
+            <div class="chart-card"><div class="chart-heading"><h3>Transfer rate <span>Mbps</span></h3><div class="legend"><span class="legend-download">Download</span><span class="legend-upload">Upload</span></div></div><div class="chart-wrap"><canvas id="throughputChart" role="img" aria-label="Live download and upload throughput over elapsed time">Live throughput graph. Current values are displayed in the measurement cards.</canvas></div><p class="chart-footnote">Seconds into each phase · upload intervals count acknowledged chunks</p></div>
+            <div class="chart-card"><div class="chart-heading"><h3>Response time <span>ms</span></h3><div class="legend"><span class="legend-latency">Idle</span><span class="legend-download">Download</span><span class="legend-upload">Upload</span><span class="legend-monitor">Monitor</span></div></div><div class="chart-wrap"><canvas id="latencyChart" role="img" aria-label="HTTP latency readings over elapsed time">Live latency graph. Summary values are displayed below.</canvas></div><p class="chart-footnote">Unsuccessful probes are recorded as failures, never invented readings.</p></div>
+          </div>
+        </div>
+        <div id="monitorSummary" class="monitor-summary" hidden aria-label="Stability monitor summary"><div><span>Successful probes</span><strong id="monitorCount">0</strong></div><div><span>Failed requests</span><strong id="monitorFailures">0</strong></div><div><span>95th-percentile latency</span><strong id="monitorP95">—</strong></div><div><span>Observation gaps</span><strong id="monitorGaps">0</strong></div></div>
+        <div id="resultIssues" class="result-issues" role="status"></div>
+      </section>
+
+      <div class="insights-grid">
+        <section class="panel latency-panel" aria-labelledby="loadedTitle"><div class="section-heading"><div><p class="eyebrow">LATENCY UNDER LOAD</p><h2 id="loadedTitle">Does speed come with lag?</h2></div><span id="bufferGrade" class="grade-badge">—</span></div><p class="section-copy">Measured response times while the connection is busy. Added latency compares each phase with idle.</p><div class="table-scroll"><table class="latency-table"><thead><tr><th scope="col">Connection state</th><th scope="col">Median · ms</th><th scope="col">95th % · ms</th><th scope="col">Added</th></tr></thead><tbody><tr><th scope="row"><span class="table-dot idle-dot"></span>Idle</th><td id="idleMedian">—</td><td id="idleP95">—</td><td class="muted">Baseline</td></tr><tr><th scope="row"><span class="table-dot download-dot"></span>Downloading</th><td id="downloadMedian">—</td><td id="downloadP95">—</td><td id="downloadAdded">—</td></tr><tr><th scope="row"><span class="table-dot upload-dot"></span>Uploading</th><td id="uploadMedian">—</td><td id="uploadP95">—</td><td id="uploadAdded">—</td></tr></tbody></table></div><p class="footnote">The 95th percentile highlights the slower end of your readings. The grade is a practical estimate based on added median latency.</p></section>
+        <section class="panel quality-panel" aria-labelledby="qualityTitle"><div class="section-heading"><div><p class="eyebrow">EVERYDAY PERFORMANCE</p><h2 id="qualityTitle">What can it handle?</h2></div></div><p id="qualitySummary" class="quality-summary">Run a test to see your connection profile.</p><div class="quality-grid"><div><span><span aria-hidden="true">◈</span> Online gaming</span><strong id="gamingScore">—</strong></div><div><span><span aria-hidden="true">▷</span> Video streaming</span><strong id="streamingScore">—</strong></div><div><span><span aria-hidden="true">◉</span> Video calls</span><strong id="callingScore">—</strong></div><div><span><span aria-hidden="true">↥</span> Cloud transfers</span><strong id="cloudScore">—</strong></div></div><p id="qualityDetail" class="footnote">Heuristic guidance from this test, not a guarantee for a particular app or service.</p></section>
+      </div>
+
+      <section class="panel history-panel" aria-labelledby="historyTitle"><div class="section-heading"><div><p class="eyebrow">YOUR CONNECTION OVER TIME</p><h2 id="historyTitle">Every test tells a story. <span id="historyCount" class="count-badge">0</span></h2></div><div class="section-actions"><button id="exportCsv" type="button" class="button button-quiet">↓ Export CSV</button><button id="clearHistory" type="button" class="button button-quiet">Clear history</button></div></div><p class="section-copy">Saved in this browser. Add labels to compare rooms, routers, VPN settings, and everything in between.</p><p id="storageWarning" class="notice notice-warning" role="status" hidden>Browser storage is unavailable. Export results before leaving this page.</p><div class="trend-heading"><label class="field inline-field" for="trendMetric"><span>Trend</span><select id="trendMetric"><option value="download">Download · Mbps</option><option value="upload">Upload · Mbps</option><option value="ping">Idle latency · ms</option></select></label><span class="footnote">Measured partial and budget-limited runs are included; see each run’s status.</span></div><div class="trend-chart-wrap"><canvas id="trendChart" role="img" aria-label="Saved test results plotted in chronological order">Historical results are available in the table below.</canvas></div><div class="table-scroll"><table class="history-table"><thead><tr><th scope="col">Date &amp; time</th><th scope="col">Label</th><th scope="col">Mode</th><th scope="col">Download · Mbps</th><th scope="col">Upload · Mbps</th><th scope="col">Latency · ms</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead><tbody id="historyBody"><tr><td colspan="8" class="empty-state">Your first result starts the story. Run a test above.</td></tr></tbody></table></div></section>
+
+      <section class="panel comparison-panel" aria-labelledby="compareTitle"><div class="section-heading"><div><p class="eyebrow">BEFORE &amp; AFTER</p><h2 id="compareTitle">See what made the difference.</h2></div><span class="quiet-tag">Two runs, side by side</span></div><div class="comparison-selects"><label class="field" for="compareA"><span><b class="comparison-letter">A</b> Baseline run</span><select id="compareA"><option value="">Choose a saved run</option></select></label><span class="compare-arrow" aria-hidden="true">→</span><label class="field" for="compareB"><span><b class="comparison-letter">B</b> Comparison run</span><select id="compareB"><option value="">Choose a saved run</option></select></label></div><div class="table-scroll"><table class="comparison-table"><thead><tr><th scope="col">Metric</th><th scope="col">A · Baseline</th><th scope="col">B · Comparison</th><th scope="col">Change</th></tr></thead><tbody id="comparisonBody"><tr><td colspan="4" class="empty-state">Choose two saved runs to compare their results.</td></tr></tbody></table></div><p id="comparisonNote" class="footnote">For a useful comparison, keep the test settings consistent and change one thing at a time.</p></section>
+
+      <details class="methodology"><summary>Understand the measurements <span aria-hidden="true">+</span></summary><div class="methodology-grid"><div><h3>A browser view of your connection</h3><p>Latency is an HTTP request round trip, including browser and server processing. It is not ICMP ping. Failed HTTP requests are not a packet-loss measurement. Results reflect the path to the selected test endpoint.</p></div><div><h3>Actual transfers, honest limitations</h3><p>Download rates count received payload bytes. Upload rates count chunks acknowledged by the server, so brief upload chart spikes are not socket-level rates. Mbps uses decimal megabits; MB uses decimal megabytes. A limited budget may end phases early.</p></div><div><h3>Keep this page active</h3><p>Stability monitoring checks requests while the page is active. Background tabs, screen locks, and sleep can interrupt timing. Observation gaps are reported separately from failed requests.</p></div><div><h3>Your history stays here</h3><p>The app stores results locally in this browser and does not upload your saved history. Network tests contact Cloudflare, which receives your IP address and test requests. Payload budgets reserve bytes for requests, including failed attempts, and exclude protocol overhead.</p></div></div></details>
+      <footer class="site-footer"><span class="footer-brand">VELOCITY<span class="footer-dot"> / </span><span>Clarity for your connection.</span></span><span>Built for real measurements.</span></footer>
+    </main>
+
+    <aside id="logDrawer" class="log-drawer" hidden aria-label="Network activity log"><div class="log-drawer-heading"><div><p class="eyebrow">UNDER THE HOOD</p><h2>Network activity</h2></div><div class="section-actions"><button id="clearLogs" type="button" class="button button-quiet">Clear</button><button id="closeLogs" type="button" class="button button-quiet" aria-label="Close network log">✕</button></div></div><div id="logContent" class="log-content" role="log" aria-live="off"><p class="muted">Test activity will appear here.</p></div></aside>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <noscript><div class="noscript">Velocity needs JavaScript to make network requests and display measurements. Enable JavaScript, then reload this page.</div></noscript>
+  </body>
+</html>

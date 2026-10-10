@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#090d16">
+    <meta name="description" content="Measure your connection with real browser speed tests, loaded latency, stability monitoring, and private local history.">
+    <title>Velocity — Connection intelligence</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23090d16'/%3E%3Cpath d='M36 8 14 36h16l-2 20 22-29H34z' fill='%232dd4bf'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="src/styles.css">
+    <script type="module" src="src/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to test</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="./" aria-label="Velocity home">
+          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8L21 9h-8z"/></svg></span>
+          <span class="brand-word">VELOCITY<span class="brand-tagline">CONNECTION INTELLIGENCE</span></span>
+        </a>
+        <div class="header-actions">
+          <button id="soundToggle" class="button button-quiet" type="button" aria-pressed="false" title="Toggle sound feedback">Sound off</button>
+          <button id="logsToggle" class="button button-quiet" type="button" aria-controls="logDrawer" aria-expanded="false"><span aria-hidden="true" class="terminal-icon">&gt;_</span> Logs</button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="container">
+      <section class="page-intro" aria-labelledby="pageTitle">
+        <div><p class="eyebrow">YOUR NETWORK, MEASURED</p><h1 id="pageTitle">A clearer picture of<br class="mobile-break"> your connection.</h1><p class="intro-copy">Speed is just the beginning. See latency under load, find interruptions, and compare what changed.</p></div>
+        <div class="endpoint"><span id="statusBadge" class="status-badge">READY</span><span id="statusText" role="status">Ready to test</span><span id="endpointText">Cloudflare · global edge network</span></div>
+      </section>
+
+      <section class="panel settings-panel" aria-labelledby="settingsTitle">
+        <div class="section-heading compact"><h2 id="settingsTitle">Make it your test</h2><span class="quiet-tag">No account needed</span></div>
+        <form id="settings">
+          <div class="settings-grid">
+            <label class="field mode-field" for="mode"><span>Test mode</span><select id="mode" name="mode"><option value="speed">Speed &amp; loaded latency</option><option value="compare">Single vs. multi-stream</option><option value="monitor">Connection stability</option></select></label>
+            <label id="durationField" class="field" for="duration"><span>Transfer duration</span><select id="duration" name="duration"><option value="5">Quick · 5 sec / phase</option><option value="10" selected>Standard · 10 sec / phase</option><option value="20">Extended · 20 sec / phase</option></select></label>
+            <label id="streamsField" class="field" for="streams"><span>Parallel streams</span><select id="streams" name="streams"><option value="1">1 stream</option><option value="4" selected>4 streams</option><option value="8">8 streams</option></select></label>
+            <label id="budgetField" class="field" for="budget"><span>Data budget</span><select id="budget" name="budget"><option value="50">50 MB</option><option value="250" selected>250 MB</option><option value="1000">1,000 MB</option></select></label>
+            <label id="monitorField" class="field" for="monitorMinutes" hidden><span>Monitor duration</span><select id="monitorMinutes" name="monitorMinutes"><option value="5">5 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select></label>
+            <label class="field label-field" for="label"><span>Run label <span class="optional">optional</span></span><input id="label" name="label" maxlength="80" placeholder="e.g. Office Wi-Fi, VPN on" autocomplete="off"></label>
+          </div>
+          <div class="settings-footer"><p id="modeHelp" class="help-text">Measure idle latency, download, and upload, with latency probes running during each transfer.</p><div class="test-actions"><button id="resetBtn" class="button button-quiet" type="button">Reset view</button><button id="stopBtn" class="button button-stop" type="button" disabled><span aria-hidden="true">■</span> Stop</button><button id="startBtn" class="button button-primary" type="submit"><span aria-hidden="true">↗</span> Start test</button></div></div>
+        </form>
+      </section>
+
+      <section class="panel measurement-panel" aria-labelledby="liveTitle">
+        <div class="section-heading"><div><p class="eyebrow">LIVE MEASUREMENTS</p><h2 id="liveTitle">The connection, as it happens.</h2></div><span class="quiet-tag">Real requests. Real results.</span></div>
+        <div class="metric-grid">
+          <article class="metric-card download-card"><h3><span aria-hidden="true">↓</span> Download</h3><p class="metric-number"><span id="downloadValue">—</span><span class="unit">Mbps</span></p><p id="downloadHint" class="metric-hint">Waiting for a test</p></article>
+          <article class="metric-card upload-card"><h3><span aria-hidden="true">↑</span> Upload</h3><p class="metric-number"><span id="uploadValue">—</span><span class="unit">Mbps</span></p><p id="uploadHint" class="metric-hint">Waiting for a test</p></article>
+          <article class="metric-card"><h3><span class="latency-symbol" aria-hidden="true">⌁</span> Idle latency</h3><p class="metric-number"><span id="pingValue">—</span><span class="unit">ms</span></p><p id="pingHint" class="metric-hint">Median HTTP round trip</p></article>
+          <article class="metric-card"><h3><span class="jitter-symbol" aria-hidden="true">≋</span> Jitter</h3><p class="metric-number"><span id="jitterValue">—</span><span class="unit">ms</span></p><p id="jitterHint" class="metric-hint">Consecutive latency variation</p></article>
+        </div>
+        <div class="live-layout">
+          <div class="gauge-panel">
+            <div class="gauge" role="img" aria-label="Live test measurement; the current value is shown below">
+              <svg class="gauge-svg" viewBox="0 0 280 240" aria-hidden="true"><defs><linearGradient id="gaugeGradient" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#2dd4bf"/><stop offset="65%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs><path class="gauge-track" d="M 53 203 A 112 112 0 1 1 227 203" pathLength="100"/><path id="gaugeArc" class="gauge-arc" d="M 53 203 A 112 112 0 1 1 227 203" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/><path class="gauge-inner" d="M 66 192 A 95 95 0 1 1 214 192"/></svg>
+              <div class="gauge-reading"><span id="gaugePhase" class="gauge-phase">READY WHEN YOU ARE</span><span id="gaugeValue" class="gauge-value">—</span><span id="gaugeUnit" class="gauge-unit">Mbps</span></div>
+            </div>
+            <p id="gaugeHint" class="gauge-hint">Start a test to see your connection in motion.</p>
+            <div class="budget"><div class="budget-label"><span>Payload budget</span><span><b id="budgetUsed">0 MB</b> / <span id="budgetLimit">250 MB</span></span></div><progress id="budgetProgress" value="0" max="100" aria-label="Data budget used">0%</progress><p>Includes reserved requests; network overhead is extra.</p></div>
+          </div>
+          <div class="live-charts">
+            <div class="chart-card"><div class="chart-heading"><h3>Transfer rate <span>Mbps</span></h3><div class="legend"><span class="legend-download">Download</span><span class="legend-upload">Upload</span></div></div><div class="chart-wrap"><canvas id="throughputChart" role="img" aria-label="Live download and upload throughput over elapsed time">Live throughput graph. Current values are displayed in the measurement cards.</canvas></div><p class="chart-footnote">Seconds into each phase · upload intervals count acknowledged chunks</p></div>
+            <div class="chart-card"><div class="chart-heading"><h3>Response time <span>ms</span></h3><div class="legend"><span class="legend-latency">Idle</span><span class="legend-download">Download</span><span class="legend-upload">Upload</span><span class="legend-monitor">Monitor</span></div></div><div class="chart-wrap"><canvas id="latencyChart" role="img" aria-label="HTTP latency readings over elapsed time">Live latency graph. Summary values are displayed below.</canvas></div><p class="chart-footnote">Unsuccessful probes are recorded as failures, never invented readings.</p></div>
+          </div>
+        </div>
+        <div id="monitorSummary" class="monitor-summary" hidden aria-label="Stability monitor summary"><div><span>Successful probes</span><strong id="monitorCount">0</strong></div><div><span>Failed requests</span><strong id="monitorFailures">0</strong></div><div><span>95th-percentile latency</span><strong id="monitorP95">—</strong></div><div><span>Observation gaps</span><strong id="monitorGaps">0</strong></div></div>
+        <div id="resultIssues" class="result-issues" role="status"></div>
+      </section>
+
+      <div class="insights-grid">
+        <section class="panel latency-panel" aria-labelledby="loadedTitle"><div class="section-heading"><div><p class="eyebrow">LATENCY UNDER LOAD</p><h2 id="loadedTitle">Does speed come with lag?</h2></div><span id="bufferGrade" class="grade-badge">—</span></div><p class="section-copy">Measured response times while the connection is busy. Added latency compares each phase with idle.</p><div class="table-scroll"><table class="latency-table"><thead><tr><th scope="col">Connection state</th><th scope="col">Median · ms</th><th scope="col">95th % · ms</th><th scope="col">Added</th></tr></thead><tbody><tr><th scope="row"><span class="table-dot idle-dot"></span>Idle</th><td id="idleMedian">—</td><td id="idleP95">—</td><td class="muted">Baseline</td></tr><tr><th scope="row"><span class="table-dot download-dot"></span>Downloading</th><td id="downloadMedian">—</td><td id="downloadP95">—</td><td id="downloadAdded">—</td></tr><tr><th scope="row"><span class="table-dot upload-dot"></span>Uploading</th><td id="uploadMedian">—</td><td id="uploadP95">—</td><td id="uploadAdded">—</td></tr></tbody></table></div><p class="footnote">The 95th percentile highlights the slower end of your readings. The grade is a practical estimate based on added median latency.</p></section>
+        <section class="panel quality-panel" aria-labelledby="qualityTitle"><div class="section-heading"><div><p class="eyebrow">EVERYDAY PERFORMANCE</p><h2 id="qualityTitle">What can it handle?</h2></div></div><p id="qualitySummary" class="quality-summary">Run a test to see your connection profile.</p><div class="quality-grid"><div><span><span aria-hidden="true">◈</span> Online gaming</span><strong id="gamingScore">—</strong></div><div><span><span aria-hidden="true">▷</span> Video streaming</span><strong id="streamingScore">—</strong></div><div><span><span aria-hidden="true">◉</span> Video calls</span><strong id="callingScore">—</strong></div><div><span><span aria-hidden="true">↥</span> Cloud transfers</span><strong id="cloudScore">—</strong></div></div><p id="qualityDetail" class="footnote">Heuristic guidance from this test, not a guarantee for a particular app or service.</p></section>
+      </div>
+
+      <section class="panel history-panel" aria-labelledby="historyTitle"><div class="section-heading"><div><p class="eyebrow">YOUR CONNECTION OVER TIME</p><h2 id="historyTitle">Every test tells a story. <span id="historyCount" class="count-badge">0</span></h2></div><div class="section-actions"><button id="exportCsv" type="button" class="button button-quiet">↓ Export CSV</button><button id="clearHistory" type="button" class="button button-quiet">Clear history</button></div></div><p class="section-copy">Saved in this browser. Add labels to compare rooms, routers, VPN settings, and everything in between.</p><p id="storageWarning" class="notice notice-warning" role="status" hidden>Browser storage is unavailable. Export results before leaving this page.</p><div class="trend-heading"><label class="field inline-field" for="trendMetric"><span>Trend</span><select id="trendMetric"><option value="download">Download · Mbps</option><option value="upload">Upload · Mbps</option><option value="ping">Idle latency · ms</option></select></label><span class="footnote">Measured partial and budget-limited runs are included; see each run’s status.</span></div><div class="trend-chart-wrap"><canvas id="trendChart" role="img" aria-label="Saved test results plotted in chronological order">Historical results are available in the table below.</canvas></div><div class="table-scroll"><table class="history-table"><thead><tr><th scope="col">Date &amp; time</th><th scope="col">Label</th><th scope="col">Mode</th><th scope="col">Download · Mbps</th><th scope="col">Upload · Mbps</th><th scope="col">Latency · ms</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead><tbody id="historyBody"><tr><td colspan="8" class="empty-state">Your first result starts the story. Run a test above.</td></tr></tbody></table></div></section>
+
+      <section class="panel comparison-panel" aria-labelledby="compareTitle"><div class="section-heading"><div><p class="eyebrow">BEFORE &amp; AFTER</p><h2 id="compareTitle">See what made the difference.</h2></div><span class="quiet-tag">Two runs, side by side</span></div><div class="comparison-selects"><label class="field" for="compareA"><span><b class="comparison-letter">A</b> Baseline run</span><select id="compareA"><option value="">Choose a saved run</option></select></label><span class="compare-arrow" aria-hidden="true">→</span><label class="field" for="compareB"><span><b class="comparison-letter">B</b> Comparison run</span><select id="compareB"><option value="">Choose a saved run</option></select></label></div><div class="table-scroll"><table class="comparison-table"><thead><tr><th scope="col">Metric</th><th scope="col">A · Baseline</th><th scope="col">B · Comparison</th><th scope="col">Change</th></tr></thead><tbody id="comparisonBody"><tr><td colspan="4" class="empty-state">Choose two saved runs to compare their results.</td></tr></tbody></table></div><p id="comparisonNote" class="footnote">For a useful comparison, keep the test settings consistent and change one thing at a time.</p></section>
+
+      <details class="methodology"><summary>Understand the measurements <span aria-hidden="true">+</span></summary><div class="methodology-grid"><div><h3>A browser view of your connection</h3><p>Latency is an HTTP request round trip, including browser and server processing. It is not ICMP ping. Failed HTTP requests are not a packet-loss measurement. Results reflect the path to the selected test endpoint.</p></div><div><h3>Actual transfers, honest limitations</h3><p>Download rates count received payload bytes. Upload rates count chunks acknowledged by the server, so brief upload chart spikes are not socket-level rates. Mbps uses decimal megabits; MB uses decimal megabytes. A limited budget may end phases early.</p></div><div><h3>Keep this page active</h3><p>Stability monitoring checks requests while the page is active. Background tabs, screen locks, and sleep can interrupt timing. Observation gaps are reported separately from failed requests.</p></div><div><h3>Your history stays here</h3><p>The app stores results locally in this browser and does not upload your saved history. Network tests contact Cloudflare, which receives your IP address and test requests. Payload budgets reserve bytes for requests, including failed attempts, and exclude protocol overhead.</p></div></div></details>
+      <footer class="site-footer"><span class="footer-brand">VELOCITY<span class="footer-dot"> / </span><span>Clarity for your connection.</span></span><span>Built for real measurements.</span></footer>
+    </main>
+
+    <aside id="logDrawer" class="log-drawer" hidden aria-label="Network activity log"><div class="log-drawer-heading"><div><p class="eyebrow">UNDER THE HOOD</p><h2>Network activity</h2></div><div class="section-actions"><button id="clearLogs" type="button" class="button button-quiet">Clear</button><button id="closeLogs" type="button" class="button button-quiet" aria-label="Close network log">✕</button></div></div><div id="logContent" class="log-content" role="log" aria-live="off"><p class="muted">Test activity will appear here.</p></div></aside>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <noscript><div class="noscript">Velocity needs JavaScript to make network requests and display measurements. Enable JavaScript, then reload this page.</div></noscript>
+  </body>
+</html>
