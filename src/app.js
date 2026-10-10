@@ -2,6 +2,7 @@ import { SpeedTestEngine } from './engine.js';
 import { HistoryStore, summarizeLatency, summarizeResult, compareResults, toCSV } from './data.js';
 
 const $ = id => document.getElementById(id);
+const APP_VERSION = $('appVersion').getAttribute('data-version');
 const number = (value, digits = 1) => Number.isFinite(value) ? value.toFixed(digits) : '—';
 const set = (id, value) => { $(id).textContent = value; };
 const colors = {download:'#29d3df', upload:'#b997ff', idle:'#f6be66', monitor:'#40d8ac'};
@@ -143,8 +144,10 @@ function showSummary(result) {
   setBudget(result.budget);
   const issues=[];
   if(result.status!=='completed')issues.push(`Run status: ${result.status}${result.stopReason?` (${result.stopReason})`:''}. Incomplete measurements are not a full test.`);
+  const errors=(result.errors || []).map(error=>typeof error==='string'?error:JSON.stringify(error));
+  if(errors.some(error=>/illegal invocation/i.test(error)))issues.push(`Browser API invocation failed. Loaded app: Velocity ${APP_VERSION}. Open Logs and include its build and runtime details when reporting this error.`);
   if(result.kind==='monitor')issues.push('Failed HTTP probes can reflect the endpoint, browser, or network. They are not a packet-loss measurement.');
-  for(const error of result.errors || [])issues.push(typeof error==='string'?error:JSON.stringify(error));
+  issues.push(...errors);
   $('resultIssues').textContent=[...new Set(issues)].slice(0,5).join(' ');
   $('resultIssues').hidden=!issues.length;
 }
@@ -338,4 +341,10 @@ window.addEventListener('online',()=>log('Browser reports connectivity restored.
 window.addEventListener('resize',()=>{for(const [id,{series,options}] of plots)plot(id,series,options);});
 window.addEventListener('storage',()=>{if(!busy){history=store.load();renderHistory();}});
 controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
-log('Velocity 3.0.1 ready. No measurements or external requests until you start a test.');
+log(`Velocity ${APP_VERSION} ready. No measurements or external requests until you start a test.`);
+const pageProtocol=globalThis.location?.protocol || 'unavailable';
+const pageContext=window.top ? (window.top===window?'top-level':'embedded') : 'unavailable';
+const secureContext=typeof globalThis.isSecureContext==='boolean'?String(globalThis.isSecureContext):'unavailable';
+log(`Runtime: protocol=${pageProtocol}; context=${pageContext}; secure=${secureContext}.`);
+log(`Browser: ${globalThis.navigator?.userAgent || 'unavailable'}`);
+log(`Request APIs: fetch=${typeof globalThis.fetch==='function'?'available':'unavailable'}; XMLHttpRequest=${typeof globalThis.XMLHttpRequest==='function'?'available':'unavailable'}.`);

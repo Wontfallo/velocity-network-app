@@ -121,15 +121,30 @@ For final real-browser validation, serve the app and check:
 
 GitHub Actions also runs a dependency-free real Chrome regression check. It
 exercises native `Window.fetch` with its required global receiver, then runs the
-standalone UI through idle, download, and upload against controlled local HTTP
-responses. Only the test fixture replaces the endpoint origin; production uses
-Cloudflare. These checks exercise browser behavior, not Internet speed accuracy.
+standalone UI through idle, download, and upload from HTTP and local-file pages,
+using same-origin and cross-origin controlled HTTP responses. The local-file
+check also uses a narrow viewport and confirms the visible build version.
+Only the test fixture replaces the endpoint origin; production uses Cloudflare.
+These checks exercise browser behavior, not Internet speed accuracy.
 The restricted development environment cannot verify the live external endpoint.
 
 Version 3.0.1 fixes a browser-only `Illegal invocation` error caused by calling
 an unbound native `fetch` as an engine method. Both source and standalone builds
 now bind it to the browser global; receiver-sensitive and real Chrome tests
 cover the regression.
+
+Version 3.0.2 makes the loaded build visible next to the endpoint and includes
+the build, page protocol, embedding context, and browser user agent in local
+diagnostic logs. Browser API receiver errors are distinguished from network/CORS
+failures. This follows a delivery error: the original saved HTML attachment
+still contained the unbound fetch after the repository was fixed. A new GitHub
+commit cannot update a previously downloaded file. Check for **v3.0.2** in the
+app itself when replacing an older copy. JavaScript is already enabled if the
+app can display a run error; changing that setting does not fix this bug.
+
+Chrome desktop automation is not an Android device test. Android Chrome, Brave,
+and individual WebView hosts still need device verification; file/preview hosts
+can also impose their own network and storage rules.
 
 ## References
 

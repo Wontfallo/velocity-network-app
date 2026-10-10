@@ -214,6 +214,19 @@ test('request timeouts are recorded honestly and cannot leave a run active', asy
   assert.equal(engine.isRunning, false);
 });
 
+test('invalid browser API receivers are not mislabeled as network or CORS failures', async () => {
+  const engine = new SpeedTestEngine({ ...testConfig, fetchImpl() {
+    throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+  } });
+  const result = await engine.run(testOptions);
+  assert.equal(result.status, 'failed');
+  assert.ok(result.errors.length > 0);
+  assert.ok(result.errors.every(error => error.includes('Browser API error:')));
+  assert.ok(result.errors.every(error => !error.includes('Network/CORS')));
+  assert.equal(result.download.bytes, 0);
+  assert.equal(result.upload.bytes, 0);
+});
+
 test('monitor sends only zero-byte probes and preserves HTTP failures as missing samples', async () => {
   let requests = 0;
   const calls = [];

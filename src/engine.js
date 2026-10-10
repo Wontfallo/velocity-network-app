@@ -288,6 +288,9 @@ export class SpeedTestEngine {
     } catch (error) {
       if (requestScope.signal.aborted) throw abortError(requestScope.signal);
       if (error instanceof RequestError) throw error;
+      if (/illegal invocation|incompatible receiver/i.test(error.message || '')) {
+        throw new RequestError(`Browser API error: ${error.message}`, 'browser-api');
+      }
       throw new RequestError(`Network/CORS error: ${error.message || 'request failed'}`);
     } finally {
       clearTimeout(timeout);

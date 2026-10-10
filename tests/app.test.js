@@ -83,6 +83,10 @@ function boot({storage = memoryStorage(), run, monitor, realEngine = false} = {}
 
 test('built app initializes every DOM binding without auto-fetching; export requires history', async () => {
   const app = boot({realEngine:true});
+  const {version} = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(app.element('appVersion').textContent,`v${version}`);
+  assert.equal(app.element('appVersion').getAttribute('data-version'),version);
+  assert.ok(app.element('logContent').textContent.includes(`Velocity ${version}`));
   assert.equal(app.fetchCount,0);
   assert.equal(app.element('duration').value,'10');
   assert.equal(app.element('streams').value,'4');
@@ -91,6 +95,25 @@ test('built app initializes every DOM binding without auto-fetching; export requ
   assert.equal(app.element('stopBtn').disabled,true);
   assert.equal(app.element('downloadValue').textContent,'—');
   assert.equal(app.element('gaugeArc').style.strokeDashoffset,'0');
+  await app.assertHealthy();
+});
+
+test('browser API failure guidance identifies the running build', async () => {
+  const app = boot({run:options => {
+    const result = speedResult(options, 1, 'failed');
+    result.errors = ["idle: Browser API error: Failed to execute 'fetch' on 'Window': Illegal invocation"];
+    result.download = {mbps:null,bytes:0,status:'failed',samples:[],errors:[]};
+    result.upload = {...result.download};
+    result.latency = {idle:[],download:[],upload:[],monitor:[]};
+    return result;
+  }});
+  await app.submit();
+  const issues = app.element('resultIssues').textContent;
+  assert.ok(issues.includes(app.element('appVersion').getAttribute('data-version')));
+  assert.match(issues,/Logs/);
+  assert.match(issues,/Illegal invocation/);
+  assert.equal(app.element('downloadValue').textContent,'—');
+  assert.equal(app.element('uploadValue').textContent,'—');
   await app.assertHealthy();
 });
 
