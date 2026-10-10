@@ -19,6 +19,7 @@ android {
 
 tasks.register('copyVelocity', Copy) {
     from '../../dist/Velocity.html'
+    from '../baseline/Gemini-original.html'
     into layout.buildDirectory.dir('generated/velocity')
 }
 tasks.named('preBuild').configure { dependsOn 'copyVelocity' }

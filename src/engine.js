@@ -96,7 +96,7 @@ export class SpeedTestEngine {
     // tests, not user-facing test settings.
     now = () => performance.now(), durationScale = 1,
     idleProbeCount = 8, idleProbeGapMs = 150,
-    requestTimeoutMs = 6000, latencyTimeoutMs = Math.min(2000, requestTimeoutMs), sampleIntervalMs = 250,
+    requestTimeoutMs = 6000, latencyTimeoutMs = requestTimeoutMs, sampleIntervalMs = 250,
     initialDownloadBytes = 1024 * 1024, initialUploadBytes = 16 * 1024,
     maxDownloadBytes = 16 * 1024 * 1024, maxUploadBytes = 4 * 1024 * 1024,
   } = {}) {
@@ -197,12 +197,11 @@ export class SpeedTestEngine {
       const phases = [result.download, result.upload];
       const measured = phases.some(phase => phase.mbps !== null);
       const latencyMeasured = result.latency.idle.some(sample => sample.ms !== null);
+      const budgetReached = phases.some(phase => phase.status === 'budget');
+      if (budgetReached && !controller.signal.aborted) result.stopReason = 'payload budget reached';
       if (!measured) result.status = latencyMeasured ? 'partial' : 'failed';
-      else if (phases.some(phase => phase.status === 'failed' || phase.status === 'partial')) result.status = 'partial';
-      else if (phases.some(phase => phase.status === 'budget')) {
-        result.status = 'budget';
-        result.stopReason = 'payload budget reached';
-      } else if (result.errors.length) result.status = 'partial';
+      else if (result.errors.length || phases.some(phase => phase.status === 'failed' || phase.status === 'partial')) result.status = 'partial';
+      else if (budgetReached) result.status = 'budget';
       else {
         const missingLatency = ['idle', 'download', 'upload'].filter(phase =>
           !result.latency[phase].some(sample => sample.ms !== null));

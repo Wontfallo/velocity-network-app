@@ -52,7 +52,8 @@ public final class MainActivity extends Activity {
                 if (injected) return;
                 injected = true;
                 try {
-                    String harness = new String(getAssets().open("probe.js").readAllBytes(), StandardCharsets.UTF_8);
+                    String harnessName = testCase.startsWith("original-") ? "original-probe.js" : "probe.js";
+                    String harness = new String(getAssets().open(harnessName).readAllBytes(), StandardCharsets.UTF_8);
                     view.evaluateJavascript("window.__velocityTestCase=" + JSONObject.quote(testCase)
                         + ";\n" + harness, null);
                 } catch (Exception error) {

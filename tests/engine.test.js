@@ -153,6 +153,47 @@ test('reservations cap concurrent payload attempts and leave an upload allowance
   assert.equal(result.download.bytes, 500);
   assert.equal(result.upload.bytes, 501);
   assert.equal(result.status, 'budget');
+  assert.equal(result.stopReason, 'payload budget reached');
+});
+
+test('a payload cap does not hide an earlier failed probe behind budget status', async () => {
+  let requests = 0;
+  const successfulFetch = goodFetch();
+  const engine = new SpeedTestEngine({
+    ...testConfig,
+    fetchImpl: (url, init) => {
+      if (++requests === 1) throw new TypeError('connection interrupted');
+      return successfulFetch(url, init);
+    },
+  });
+  const result = await engine.run({ ...testOptions, budgetBytes: 200 });
+  assert.equal(result.download.status, 'budget');
+  assert.equal(result.upload.status, 'budget');
+  assert.equal(result.download.bytes, 100);
+  assert.equal(result.upload.bytes, 100);
+  assert.equal(result.status, 'partial');
+  assert.equal(result.stopReason, 'payload budget reached');
+  assert.ok(result.errors.some(error => error.startsWith('idle:')));
+  assert.equal(result.latency.idle[0].ms, null);
+});
+
+test('cold connection latency above two seconds is retained as a real measurement', async () => {
+  let requests = 0;
+  const successfulFetch = goodFetch();
+  const engine = new SpeedTestEngine({
+    ...testConfig, requestTimeoutMs: 6000,
+    fetchImpl: async (url, init) => {
+      // Cold DNS/TLS or mobile scheduling can exceed the old 2s probe timeout.
+      if (++requests === 1) await wait(2100);
+      return successfulFetch(url, init);
+    },
+  });
+  const result = await engine.run(testOptions);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.latency.idle.length, testConfig.idleProbeCount);
+  assert.ok(result.latency.idle[0].ms >= 2000, 'the cold request is measured, not discarded as warm-up');
+  assert.ok(result.latency.idle[0].ms < 6000);
+  assert.deepEqual(result.errors, []);
 });
 
 test('stop during an idle request cancels promptly even if a fetch promise never settles', async () => {

@@ -1,6 +1,7 @@
 // Live desktop Chrome diagnostics, using the exact shipped standalone HTML.
 // No endpoint substitution, fetch interception, security bypass, or fake UA.
 // Two runs at 250 MB/run reserve at most 500 MB of application payload in total.
+// Optional SIZE_PROBE=1 adds a separate 58 MiB endpoint-size diagnostic matrix.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -120,6 +121,42 @@ const exerciseApp = expectedVersion => `
   };
 })()`;
 
+// These isolated native requests diagnose endpoint behavior by payload size.
+// They do not run the app, alter its transport, or claim to measure throughput.
+const exerciseSizes = () => `
+(async () => {
+  const probes = [];
+  for (const sizeMiB of [1,4,8,16]) {
+    const requestedBytes = sizeMiB * 1024 * 1024;
+    const url = 'https://speed.cloudflare.com/__down?bytes=' + requestedBytes + '&velocity=' + Date.now() + '-' + (probes.length + 1);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort('timeout'), 6000);
+    const started = performance.now();
+    const probe = {sizeMiB, requestedBytes, url, ok:false};
+    try {
+      const response = await window.fetch(url, {
+        method:'GET', signal:controller.signal, mode:'cors', credentials:'omit',
+        cache:'no-store', redirect:'error',
+      });
+      probe.status = response.status;
+      probe.contentType = response.headers.get('content-type');
+      probe.contentLength = response.headers.get('content-length');
+      probe.receivedBytes = (await response.arrayBuffer()).byteLength;
+      probe.ok = response.ok && probe.receivedBytes === requestedBytes;
+      if (!probe.ok) probe.error = 'HTTP status or response byte count did not match';
+    } catch (error) {
+      probe.error = String(error);
+      probe.timedOut = controller.signal.aborted;
+    } finally {
+      clearTimeout(timer);
+      probe.elapsedMs = performance.now() - started;
+      probes.push(probe);
+    }
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+  return {protocol:location.protocol, userAgent:navigator.userAgent, probes};
+})()`;
+
 function assess(diagnostic) {
   const problems = [];
   const result = diagnostic.app?.result;
@@ -157,7 +194,7 @@ function assess(diagnostic) {
 const diagnosticHeaders = headers => Object.fromEntries(Object.entries(headers)
   .filter(([key]) => /^(access-control-|content-type$|content-encoding$|content-length$|cf-ray$|server$|retry-after$|via$)/i.test(key)));
 
-async function run(label, url) {
+async function run(label, url, {sizeProbe = false} = {}) {
   const profile = await mkdtemp(join(tmpdir(), 'velocity-live-'));
   const diagnostic = {label, startedAt:new Date().toISOString(), version, artifactSha256, network:[], console:[]};
   const requests = new Map();
@@ -229,9 +266,10 @@ async function run(label, url) {
     });
     try {await Promise.all([cdp.send('Page.navigate', {url}, sessionId), loaded]);}
     finally {clearTimeout(loadTimer);}
-    const evaluated = await cdp.send('Runtime.evaluate', {expression:exerciseApp(version),awaitPromise:true,returnByValue:true}, sessionId, 65000);
+    const expression = sizeProbe ? exerciseSizes() : exerciseApp(version);
+    const evaluated = await cdp.send('Runtime.evaluate', {expression,awaitPromise:true,returnByValue:true}, sessionId, 65000);
     if (evaluated.exceptionDetails) throw new Error(evaluated.exceptionDetails.exception?.description ?? evaluated.exceptionDetails.text);
-    diagnostic.app = evaluated.result.value;
+    diagnostic[sizeProbe ? 'matrix' : 'app'] = evaluated.result.value;
   } catch (error) {
     diagnostic.error = error.stack ?? String(error);
   } finally {
@@ -249,14 +287,28 @@ async function run(label, url) {
     diagnostic.stderr = stderr;
     await rm(profile, {recursive:true,force:true,maxRetries:5,retryDelay:100});
   }
-  Object.assign(diagnostic, assess(diagnostic));
+  if (sizeProbe) {
+    diagnostic.purpose = 'Observational endpoint size matrix; not an application speed measurement';
+    diagnostic.matrixCollected = diagnostic.matrix?.probes?.length === 4;
+    for (const probe of diagnostic.matrix?.probes ?? []) {
+      const request = diagnostic.network.find(request => request.url === probe.url);
+      probe.rawHttpStatus = request?.rawHttpStatus ?? request?.status ?? null;
+      probe.corsErrorStatus = request?.corsErrorStatus;
+      probe.rawHeaders = request?.rawHeaders;
+    }
+  } else Object.assign(diagnostic, assess(diagnostic));
   await writeFile(join(output, `${label}.json`), JSON.stringify(diagnostic, null, 2));
-  console.log(JSON.stringify({label,ok:diagnostic.ok,outcome:diagnostic.outcome,status:diagnostic.app?.result?.status,problems:diagnostic.problems,probeCounts:diagnostic.probeCounts,budgetLimited:diagnostic.budgetLimited,transportErrors:diagnostic.transportErrors,display:diagnostic.app?.display,cloudflareRequests:diagnostic.network.length},null,2));
+  console.log(JSON.stringify({label,purpose:diagnostic.purpose,matrixCollected:diagnostic.matrixCollected,matrix:diagnostic.matrix,ok:diagnostic.ok,outcome:diagnostic.outcome,status:diagnostic.app?.result?.status,problems:diagnostic.problems,probeCounts:diagnostic.probeCounts,budgetLimited:diagnostic.budgetLimited,transportErrors:diagnostic.transportErrors,display:diagnostic.app?.display,cloudflareRequests:diagnostic.network.length},null,2));
   return diagnostic;
 }
 
 const results = [];
+const matrices = [];
 try {
+  if (process.env.SIZE_PROBE === '1') {
+    matrices.push(await run('http-size-matrix', httpUrl, {sizeProbe:true}));
+    matrices.push(await run('file-size-matrix', pathToFileURL(artifactPath).href, {sizeProbe:true}));
+  }
   results.push(await run('http-live', httpUrl));
   results.push(await run('file-live', pathToFileURL(artifactPath).href));
 } finally {
@@ -266,10 +318,13 @@ try {
 const summary = {
   version, artifactSha256, scope:'Desktop Chrome on this runner; actual Cloudflare endpoint; no Android/Brave/WebView claim',
   maximumReservedPayloadBytes:500e6,
+  maximumAdditionalMatrixBytes:matrices.length * 29 * 1024 * 1024,
+  matrices:matrices.map(({label,matrixCollected,matrix,error}) => ({label,matrixCollected,probes:matrix?.probes,error})),
   results:results.map(({label,ok,outcome,problems}) => ({label,ok,outcome,problems})),
 };
 await writeFile(join(output, 'summary.json'), JSON.stringify(summary,null,2));
 if (process.env.GITHUB_STEP_SUMMARY) {
   await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Live Cloudflare browser diagnostics\n\nBuild ${version}, SHA-256 \`${artifactSha256}\`. Actual standalone bytes over HTTP and file:, desktop Chrome. No transport mocks. At most 500 MB reserved payload total.\n\n${summary.results.map(result => `- **${result.label}: ${result.outcome}**${result.problems.length ? '\n  ' + result.problems.join('; ') : ''}`).join('\n')}\n\nJSON includes exact app errors, raw HTTP status/headers behind CORS failures, browser console and timing data. Screenshots are in the uploaded artifact. Budget exhaustion is distinguished from transport failure; incomplete results do not count as successful live verification. This checks connectivity and completion, not independent throughput accuracy.\n`);
+  if (matrices.length) await appendFile(process.env.GITHUB_STEP_SUMMARY, `\n## Separate endpoint size observations\n\nFresh browser profiles requested 1, 4, 8, and 16 MiB once each over HTTP and file: (at most 58 MiB additional). These are diagnostic requests, not speed-test results. Failures remain in the raw trace.\n\n| Document | Size | HTTP status | Outcome |\n|---|---:|---:|---|\n${summary.matrices.flatMap(matrix => (matrix.probes ?? []).map(probe => `| ${matrix.label} | ${probe.sizeMiB} MiB | ${probe.rawHttpStatus ?? 'Unavailable'} | ${probe.ok ? 'Bytes received' : probe.error || 'Failed'} |`)).join('\n')}\n`);
 }
-if (results.some(result => !result.ok)) process.exitCode = 1;
+if (results.some(result => !result.ok) || matrices.some(matrix => !matrix.matrixCollected)) process.exitCode = 1;

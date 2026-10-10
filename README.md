@@ -20,6 +20,15 @@ for file URLs may require the local server or a static HTTPS host.
 No network test begins until you press Start. The static UI does not require a
 font provider, stylesheet CDN, account, API key, or backend.
 
+### Open on Android through HTTPS
+
+The repository root is ready for GitHub Pages: no build or backend is needed.
+In the repository's **Settings → Pages**, select **Deploy from a branch**,
+**main**, and **/(root)**, then save. GitHub will show the published URL when
+deployment completes. This setting must be enabled by a repository owner;
+pushing source alone does not enable hosting. Browser and WebView file viewers
+can impose network restrictions even when JavaScript is enabled.
+
 ## Features
 
 - Idle HTTP latency with chronological jitter, median, and 95th percentile.

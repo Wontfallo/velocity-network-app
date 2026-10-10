@@ -464,7 +464,7 @@ class SpeedTestEngine {
     // tests, not user-facing test settings.
     now = () => performance.now(), durationScale = 1,
     idleProbeCount = 8, idleProbeGapMs = 150,
-    requestTimeoutMs = 6000, latencyTimeoutMs = Math.min(2000, requestTimeoutMs), sampleIntervalMs = 250,
+    requestTimeoutMs = 6000, latencyTimeoutMs = requestTimeoutMs, sampleIntervalMs = 250,
     initialDownloadBytes = 1024 * 1024, initialUploadBytes = 16 * 1024,
     maxDownloadBytes = 16 * 1024 * 1024, maxUploadBytes = 4 * 1024 * 1024,
   } = {}) {
@@ -565,12 +565,11 @@ class SpeedTestEngine {
       const phases = [result.download, result.upload];
       const measured = phases.some(phase => phase.mbps !== null);
       const latencyMeasured = result.latency.idle.some(sample => sample.ms !== null);
+      const budgetReached = phases.some(phase => phase.status === 'budget');
+      if (budgetReached && !controller.signal.aborted) result.stopReason = 'payload budget reached';
       if (!measured) result.status = latencyMeasured ? 'partial' : 'failed';
-      else if (phases.some(phase => phase.status === 'failed' || phase.status === 'partial')) result.status = 'partial';
-      else if (phases.some(phase => phase.status === 'budget')) {
-        result.status = 'budget';
-        result.stopReason = 'payload budget reached';
-      } else if (result.errors.length) result.status = 'partial';
+      else if (result.errors.length || phases.some(phase => phase.status === 'failed' || phase.status === 'partial')) result.status = 'partial';
+      else if (budgetReached) result.status = 'budget';
       else {
         const missingLatency = ['idle', 'download', 'upload'].filter(phase =>
           !result.latency[phase].some(sample => sample.ms !== null));
@@ -1330,7 +1329,7 @@ return {};
         <div><p class="eyebrow">YOUR NETWORK, MEASURED</p><h1 id="pageTitle">A clearer picture of<br class="mobile-break"> your connection.</h1><p class="intro-copy">Speed is just the beginning. See latency under load, find interruptions, and compare what changed.</p></div>
         <div class="endpoint"><span id="statusBadge" class="status-badge">READY</span><span id="statusText" role="status">Ready to test</span><span id="endpointText">Cloudflare · <span id="appVersion" data-version="3.0.3">v3.0.3</span></span></div>
       </section>
-      <p id="localFileNotice" class="notice notice-warning" hidden>File viewers can restrict network requests. <a href="https://velocity-network-lab.lasertechmn.chatgpt.site" target="_blank" rel="noopener" style="text-decoration:underline">Open Velocity on the web</a> if this copy cannot connect. Saved history stays in the browser where you ran the test.</p>
+      <p id="localFileNotice" class="notice notice-warning" hidden>This copy is running from a local file. Some Android file viewers block its network requests even with JavaScript enabled. Use an HTTPS-hosted copy if requests are blocked. Saved history stays in the browser where you ran the test.</p>
 
       <section class="panel settings-panel" aria-labelledby="settingsTitle">
         <div class="section-heading compact"><h2 id="settingsTitle">Make it your test</h2><span class="quiet-tag">No account needed</span></div>

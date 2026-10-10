@@ -7,12 +7,17 @@ import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {promisify} from 'node:util';
+import {createHash} from 'node:crypto';
+import {observeWebViewNetwork} from './network-observer.mjs';
 
 const execute = promisify(execFile);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = join(root, 'test-results/android');
 await mkdir(output, {recursive: true});
 const standalone = await readFile(join(root, 'dist/Velocity.html'), 'utf8');
+const original = await readFile(join(root, 'android/baseline/Gemini-original.html'));
+const originalHash = createHash('sha256').update(original).digest('hex');
+assert.equal(originalHash, '6081a7427a3816a9d2ed655394e0249ba12fa3adbfe0e338488a44a51b85f976', 'Original comparison baseline was modified');
 const expectedVersion = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version;
 const declaration = "const SPEED_ENDPOINT = 'https://speed.cloudflare.com';";
 assert.equal(standalone.split(declaration).length, 2, 'Update Android fixture for changed endpoint declaration');
@@ -28,9 +33,9 @@ const handler = (request, response) => {
     response.setHeader('Access-Control-Allow-Headers', 'content-type, cache-control, pragma');
     response.setHeader('Access-Control-Allow-Private-Network', 'true');
     if (request.method === 'OPTIONS') {response.writeHead(204).end(); return;}
-    if (url.pathname === '/live' || url.pathname === '/fixture') {
+    if (url.pathname === '/live' || url.pathname === '/fixture' || url.pathname === '/original') {
       response.setHeader('Content-Type', 'text/html; charset=utf-8');
-      response.end(url.pathname === '/live' ? standalone : fixture);
+      response.end(url.pathname === '/original' ? original : url.pathname === '/live' ? standalone : fixture);
     } else if (url.pathname === '/__down') {
       const bytes = Number(url.searchParams.get('bytes'));
       assert.ok(Number.isSafeInteger(bytes) && bytes >= 0 && bytes <= 16 * 1024 * 1024);
@@ -75,13 +80,21 @@ try {
     ['fixture-http', 'http://127.0.0.1:4174/fixture'],
     ['live-cloudflare-http', 'http://127.0.0.1:4174/live'],
     ['local-file', 'file:///android_asset/Velocity.html'],
+    ['original-http', 'http://127.0.0.1:4174/original'],
+    ['original-local-file', 'file:///android_asset/Gemini-original.html'],
   ]) {
     await adb('shell', 'am', 'force-stop', 'dev.velocity.smoke');
     await adb('shell', 'pm', 'clear', 'dev.velocity.smoke');
     await adb('logcat', '-c');
     await adb('shell', 'am', 'start', '-W', '-n', 'dev.velocity.smoke/.MainActivity', '--es', 'case', testCase, '--es', 'url', url);
+    let network;
+    let observerError;
+    if (testCase.startsWith('original-')) {
+      try { network = await observeWebViewNetwork(adb, url); }
+      catch (error) { observerError = String(error.stack || error); }
+    }
     let result;
-    const deadline = Date.now() + (testCase === 'fixture-http' ? 180000 : 90000);
+    const deadline = Date.now() + (testCase === 'fixture-http' ? 180000 : testCase.startsWith('original-') ? 120000 : 90000);
     while (!result && Date.now() < deadline) {
       try {
         const response = await adb('shell', 'run-as', 'dev.velocity.smoke', 'cat', 'files/report.json');
@@ -89,7 +102,11 @@ try {
       } catch { await delay(500); }
     }
     result ||= {case: testCase, ok: false, error: 'Android harness did not report before timeout'};
-    if (result.version !== expectedVersion) {
+    if (testCase.startsWith('original-')) {
+      result.originalSha256 = originalHash;
+      if (network) result.nativeNetwork = await network.finish();
+      if (observerError) { result.ok = false; result.observerError = observerError; }
+    } else if (result.version !== expectedVersion) {
       result.ok = false;
       result.error = `Expected version ${expectedVersion}; received ${result.version}. ${result.error || ''}`;
     }
