@@ -62,6 +62,7 @@ linear interpolation. Connection setup is included; no warm-up is excluded.
 
 Download rates use validated response payload and observed progress from
 requests cut off at the phase deadline. Known compressed responses are rejected.
+Download requests are capped at 8 MiB because live local-file tests received HTTP 403 for larger requests while 1, 4, and 8 MiB succeeded; this is an observed compatibility choice, not a documented universal endpoint limit.
 Upload rates count payload only after a successful response. Fetch does not
 provide upload-progress events, so upload intervals reflect acknowledged chunks,
 not instantaneous socket traffic. Incomplete uploads receive no speed credit.
@@ -134,8 +135,8 @@ standalone UI through idle, download, and upload from HTTP and local-file pages,
 using same-origin and cross-origin controlled HTTP responses. The local-file
 check also uses a narrow viewport and confirms the visible build version.
 Only the test fixture replaces the endpoint origin; production uses Cloudflare.
-These checks exercise browser behavior, not Internet speed accuracy.
-The restricted development environment cannot verify the live external endpoint.
+These controlled checks exercise browser behavior, not Internet speed accuracy.
+Separate live Chrome and Android workflows verify the actual external endpoint.
 
 Version 3.0.1 fixes a browser-only `Illegal invocation` error caused by calling
 an unbound native `fetch` as an engine method. Both source and standalone builds
@@ -158,12 +159,31 @@ timeout, counting only acknowledged bodies. A completed speed run must have a
 successful idle probe and a probe under each transfer direction; missing
 latency keeps the run partial. Failed UI executions stay visibly failed, with
 the original error available through Logs → Copy report or Save report.
+Cold latency probes receive the same six-second timeout as other requests;
+their full connection time remains in the measured result. A payload limit
+cannot hide an earlier request failure behind a budget-only status.
 
 `scripts/live-smoke.mjs` checks the exact shipped artifact against Cloudflare,
-with native desktop Chrome network diagnostics and screenshots. The separate
-Android workflow builds a native WebView host and runs an Android 16 emulator;
-see `android/README.md`. Its local-file case records platform restrictions as
-diagnostics, not a successful speed test. Consult each workflow's actual
+with native desktop Chrome network diagnostics and screenshots. HTTP and local-file
+cases require positive measurements in both directions and error-free requests.
+Full-duration verification additionally requires at least three successful latency
+probes per phase and final throughput samples reaching each requested five-second
+phase (within 50 ms of timestamp/scheduling tolerance).
+
+A fast connection can exhaust the 250 MB test budget before three loaded probes
+finish. Such a run can pass a separate **budget-handling check** when it has at
+least one real probe in every phase, labels the result incomplete, and withholds
+the grade if any phase has fewer than three probes. Reports explicitly mark
+`fullMeasurementVerified: false`; this does not establish full-duration or
+complete loaded-latency verification. Both app runs together reserve at most
+500 MB of payload. `SIZE_PROBE=1` adds a separate observational 1/4/8/16 MiB
+HTTP/file endpoint matrix, capped at another 58 MiB; its responses are not
+speed measurements and all failures remain in the diagnostics.
+
+The separate Android workflow builds a native WebView host and runs an Android
+16 emulator; see `android/README.md` for its own criteria and results.
+The byte-identical original Gemini file is also run, with passive native network
+observations kept separate from its displayed values. Consult each workflow's actual
 result: adding a test does not establish that it passed. Emulator coverage
 does not establish compatibility with every physical phone or WebView host.
 

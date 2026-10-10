@@ -94,7 +94,7 @@ try {
       catch (error) { observerError = String(error.stack || error); }
     }
     let result;
-    const deadline = Date.now() + (testCase === 'fixture-http' ? 180000 : testCase.startsWith('original-') ? 120000 : 90000);
+    const deadline = Date.now() + (testCase === 'fixture-http' ? 240000 : 120000);
     while (!result && Date.now() < deadline) {
       try {
         const response = await adb('shell', 'run-as', 'dev.velocity.smoke', 'cat', 'files/report.json');

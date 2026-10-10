@@ -466,7 +466,7 @@ class SpeedTestEngine {
     idleProbeCount = 8, idleProbeGapMs = 150,
     requestTimeoutMs = 6000, latencyTimeoutMs = requestTimeoutMs, sampleIntervalMs = 250,
     initialDownloadBytes = 1024 * 1024, initialUploadBytes = 16 * 1024,
-    maxDownloadBytes = 16 * 1024 * 1024, maxUploadBytes = 4 * 1024 * 1024,
+    maxDownloadBytes = 8 * 1024 * 1024, maxUploadBytes = 4 * 1024 * 1024,
   } = {}) {
     if (typeof fetchImpl !== 'function') throw new TypeError('Fetch is unavailable in this browser');
     this.onEvent = onEvent;

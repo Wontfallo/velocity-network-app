@@ -18,8 +18,6 @@ jobs:
           npm run build
           git diff --exit-code -- dist/Velocity.html
       - name: Run actual Cloudflare requests in desktop Chrome
-        env:
-          SIZE_PROBE: '1'
         run: node scripts/live-smoke.mjs
       - name: Upload exact errors, request diagnostics, and screenshots
         if: always()

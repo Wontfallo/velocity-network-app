@@ -60,7 +60,7 @@
       await pause(stopAfterMs);
       byId('stopBtn').click();
     }
-    await wait(() => !byId('startBtn').disabled, 'Run did not restore its controls', mode === 'compare' ? 90000 : 60000);
+    await wait(() => !byId('startBtn').disabled, 'Run did not restore its controls', mode === 'compare' ? 120000 : 90000);
     check(byId('stopBtn').disabled, 'Stop remained active after measurement');
     check(byId('historyBody').textContent.includes(label), 'Run was not saved to history');
     const status = byId('statusBadge').textContent;

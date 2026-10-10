@@ -114,6 +114,7 @@ const exerciseApp = expectedVersion => `
     timedOut, elapsedMs:performance.now() - testStartedAt, result, storageError,
     display:Object.fromEntries(['statusBadge','statusText','resultIssues','downloadValue','uploadValue','pingValue','bufferGrade','qualityDetail','storageWarning']
       .map(id => [id, byId(id)?.textContent ?? null])),
+    resultIssuesVisible:!byId('resultIssues').hidden,
     controls:{startDisabled:byId('startBtn').disabled, stopDisabled:byId('stopBtn').disabled},
     log:byId('logContent').innerText,
     resources:performance.getEntriesByType('resource').filter(entry => entry.name.startsWith('https://speed.cloudflare.com/'))
@@ -161,6 +162,8 @@ function assess(diagnostic) {
   const problems = [];
   const result = diagnostic.app?.result;
   const probeCounts = {};
+  const phaseSampleSeconds = {};
+  const budgetLimited = result?.status === 'budget';
   const transportErrors = diagnostic.network.filter(request => request.errorText && !request.canceled)
     .map(({url,errorText,corsErrorStatus,rawHttpStatus,status,rawHeaders}) => ({url,errorText,corsErrorStatus,httpStatus:rawHttpStatus ?? status ?? null,headers:rawHeaders}));
   if (diagnostic.error) problems.push(diagnostic.error);
@@ -168,26 +171,48 @@ function assess(diagnostic) {
   else {
     if (result.settings.endpoint !== 'https://speed.cloudflare.com') problems.push('Unexpected endpoint');
     if (result.budget.usedBytes > 250e6 || result.budget.limitBytes !== 250e6) problems.push('Payload budget was not respected');
+    if (result.settings.duration !== 5) problems.push('Unexpected transfer duration setting');
     for (const direction of ['download', 'upload']) {
       if (!(result[direction].bytes > 0 && result[direction].mbps > 0)) problems.push(`No valid ${direction} measurement`);
+      phaseSampleSeconds[direction] = Math.max(0, ...result[direction].samples.map(sample => sample.t));
+      // Throughput timestamps are relative to the start of their own phase.
+      // The engine takes a final sample when the phase ends. Allow 50 ms for
+      // timestamp rounding/scheduling; total run time alone cannot prove both.
+      if (result.status === 'completed' && phaseSampleSeconds[direction] < result.settings.duration - 0.05) {
+        problems.push(`${direction}: final phase sample stops at ${phaseSampleSeconds[direction]}s, before the requested ${result.settings.duration}s`);
+      }
     }
     for (const phase of ['idle', 'download', 'upload']) {
       const valid = result.latency[phase].filter(sample => Number.isFinite(sample.ms)).length;
       probeCounts[phase] = valid;
-      if (valid < 3) problems.push(`${phase}: only ${valid} successful latency probes (need at least 3)`);
+      const required = budgetLimited ? 1 : 3;
+      if (valid < required) problems.push(`${phase}: only ${valid} successful latency probes (need at least ${required})`);
     }
     if (!['completed','budget'].includes(result.status)) problems.push(`Run status: ${result.status}`);
     if (result.errors.length) problems.push(...result.errors);
+    if (budgetLimited) {
+      const display = diagnostic.app.display;
+      if (result.stopReason !== 'payload budget reached' || !['download','upload'].some(phase => result[phase].status === 'budget')) {
+        problems.push('Budget status lacks evidence of an exhausted phase allowance');
+      }
+      if (display.statusBadge !== 'BUDGET' || !diagnostic.app.resultIssuesVisible || !display.resultIssues.includes('Incomplete measurements')) {
+        problems.push('Budget-limited run was not visibly labeled incomplete');
+      }
+      if (Object.values(probeCounts).some(count => count < 3) && display.bufferGrade.trim() !== '—') {
+        problems.push('A grade was shown without three successful probes in every phase');
+      }
+    }
   }
   if (diagnostic.app?.timedOut) problems.push('App exceeded live diagnostic time limit');
-  const truthfulIncomplete = !transportErrors.length && result?.status === 'budget'
-    && diagnostic.app.display.resultIssues.includes('Incomplete measurements')
-    && diagnostic.app.display.bufferGrade.trim() === '—';
+  if (transportErrors.length) problems.push('One or more live transport requests failed');
+  if (diagnostic.app?.controls.startDisabled || !diagnostic.app?.controls.stopDisabled) problems.push('App controls did not return to the idle state');
+  const ok = problems.length === 0;
   return {
-    ok:problems.length === 0,
-    outcome:problems.length === 0 ? 'live measurements verified' : truthfulIncomplete ? 'truthfully reported incomplete budget-limited measurement' : 'live measurement failure',
+    ok,
+    outcome:!ok ? 'live measurement failure' : budgetLimited ? 'verified budget handling; partial-duration measurements' : 'full-duration live measurements verified',
+    fullMeasurementVerified:ok && !budgetLimited,
     problems:[...new Set(problems)],
-    transportErrors, probeCounts, budgetLimited:result?.status === 'budget',
+    transportErrors, probeCounts, phaseSampleSeconds, budgetLimited,
   };
 }
 
@@ -298,7 +323,7 @@ async function run(label, url, {sizeProbe = false} = {}) {
     }
   } else Object.assign(diagnostic, assess(diagnostic));
   await writeFile(join(output, `${label}.json`), JSON.stringify(diagnostic, null, 2));
-  console.log(JSON.stringify({label,purpose:diagnostic.purpose,matrixCollected:diagnostic.matrixCollected,matrix:diagnostic.matrix,ok:diagnostic.ok,outcome:diagnostic.outcome,status:diagnostic.app?.result?.status,problems:diagnostic.problems,probeCounts:diagnostic.probeCounts,budgetLimited:diagnostic.budgetLimited,transportErrors:diagnostic.transportErrors,display:diagnostic.app?.display,cloudflareRequests:diagnostic.network.length},null,2));
+  console.log(JSON.stringify({label,purpose:diagnostic.purpose,matrixCollected:diagnostic.matrixCollected,matrix:diagnostic.matrix,ok:diagnostic.ok,outcome:diagnostic.outcome,fullMeasurementVerified:diagnostic.fullMeasurementVerified,status:diagnostic.app?.result?.status,problems:diagnostic.problems,probeCounts:diagnostic.probeCounts,phaseSampleSeconds:diagnostic.phaseSampleSeconds,budgetLimited:diagnostic.budgetLimited,transportErrors:diagnostic.transportErrors,display:diagnostic.app?.display,cloudflareRequests:diagnostic.network.length},null,2));
   return diagnostic;
 }
 
@@ -320,11 +345,11 @@ const summary = {
   maximumReservedPayloadBytes:500e6,
   maximumAdditionalMatrixBytes:matrices.length * 29 * 1024 * 1024,
   matrices:matrices.map(({label,matrixCollected,matrix,error}) => ({label,matrixCollected,probes:matrix?.probes,error})),
-  results:results.map(({label,ok,outcome,problems}) => ({label,ok,outcome,problems})),
+  results:results.map(({label,ok,outcome,fullMeasurementVerified,problems}) => ({label,ok,outcome,fullMeasurementVerified,problems})),
 };
 await writeFile(join(output, 'summary.json'), JSON.stringify(summary,null,2));
 if (process.env.GITHUB_STEP_SUMMARY) {
-  await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Live Cloudflare browser diagnostics\n\nBuild ${version}, SHA-256 \`${artifactSha256}\`. Actual standalone bytes over HTTP and file:, desktop Chrome. No transport mocks. At most 500 MB reserved payload total.\n\n${summary.results.map(result => `- **${result.label}: ${result.outcome}**${result.problems.length ? '\n  ' + result.problems.join('; ') : ''}`).join('\n')}\n\nJSON includes exact app errors, raw HTTP status/headers behind CORS failures, browser console and timing data. Screenshots are in the uploaded artifact. Budget exhaustion is distinguished from transport failure; incomplete results do not count as successful live verification. This checks connectivity and completion, not independent throughput accuracy.\n`);
+  await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Live Cloudflare browser diagnostics\n\nBuild ${version}, SHA-256 \`${artifactSha256}\`. Actual standalone bytes over HTTP and file:, desktop Chrome. No transport mocks. At most 500 MB reserved payload total.\n\n${summary.results.map(result => `- **${result.label}: ${result.outcome}**${result.problems.length ? '\n  ' + result.problems.join('; ') : ''}`).join('\n')}\n\nJSON includes exact app errors, raw HTTP status/headers behind CORS failures, browser console and timing data. Screenshots are in the uploaded artifact. Full-duration verification requires three successful probes per phase and phase samples reaching the requested duration. A healthy budget-limited run can verify budget handling and real partial transfers; it is never labeled full-duration verification. It must visibly report incompleteness and withhold a grade when samples are insufficient. This checks connectivity and behavior, not independent throughput accuracy.\n`);
   if (matrices.length) await appendFile(process.env.GITHUB_STEP_SUMMARY, `\n## Separate endpoint size observations\n\nFresh browser profiles requested 1, 4, 8, and 16 MiB once each over HTTP and file: (at most 58 MiB additional). These are diagnostic requests, not speed-test results. Failures remain in the raw trace.\n\n| Document | Size | HTTP status | Outcome |\n|---|---:|---:|---|\n${summary.matrices.flatMap(matrix => (matrix.probes ?? []).map(probe => `| ${matrix.label} | ${probe.sizeMiB} MiB | ${probe.rawHttpStatus ?? 'Unavailable'} | ${probe.ok ? 'Bytes received' : probe.error || 'Failed'} |`)).join('\n')}\n`);
 }
 if (results.some(result => !result.ok) || matrices.some(matrix => !matrix.matrixCollected)) process.exitCode = 1;

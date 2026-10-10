@@ -107,6 +107,41 @@ test('HTTP status errors do not count response or upload payload as measured tra
   assert.match(result.errors[0], /HTTP 503/);
 });
 
+test('fast adaptive downloads stay within the 8 MiB compatible request size', async () => {
+  const MiB = 1024 * 1024;
+  const requestedSizes = [];
+  const chunk = new Uint8Array(64 * 1024);
+  const engine = new SpeedTestEngine({
+    ...testConfig, durationScale: 0.1, requestTimeoutMs: 500,
+    initialDownloadBytes: undefined, maxDownloadBytes: undefined,
+    initialUploadBytes: MiB, maxUploadBytes: MiB,
+    fetchImpl: async (url, init) => {
+      await wait(2);
+      if (init.method === 'POST') return new Response('{}');
+      const bytes = Number(new URL(url).searchParams.get('bytes'));
+      if (!bytes) return new Response();
+      requestedSizes.push(bytes);
+      if (bytes > 8 * MiB) return new Response('request rejected', { status: 403 });
+      let remaining = bytes;
+      return new Response(new ReadableStream({
+        pull(controller) {
+          if (!remaining) { controller.close(); return; }
+          const size = Math.min(chunk.byteLength, remaining);
+          controller.enqueue(chunk.subarray(0, size));
+          remaining -= size;
+        },
+      }));
+    },
+  });
+  const result = await engine.run({ ...testOptions, budgetBytes: 20 * MiB });
+  assert.deepEqual(result.errors, [], 'adaptive growth must not trigger the endpoint size rejection');
+  assert.ok(requestedSizes.includes(8 * MiB), 'the fast path reaches the configured default cap');
+  assert.ok(requestedSizes.every(bytes => bytes <= 8 * MiB));
+  assert.equal(result.download.bytes, 10 * MiB);
+  assert.ok(result.download.mbps > 0);
+  assert.equal(result.status, 'budget');
+});
+
 test('compressed downloads are rejected before counting decoded payload bytes', async () => {
   const engine = new SpeedTestEngine({
     ...testConfig,
