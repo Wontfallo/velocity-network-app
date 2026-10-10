@@ -1,0 +1,24 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'dev.velocity.smoke'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'dev.velocity.smoke'
+        minSdk 28
+        targetSdk 36
+        versionCode 1
+        versionName '1.0'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    sourceSets.main.assets.srcDirs += [layout.buildDirectory.dir('generated/velocity').get().asFile]
+}
+
+tasks.register('copyVelocity', Copy) {
+    from '../../dist/Velocity.html'
+    into layout.buildDirectory.dir('generated/velocity')
+}
+tasks.named('preBuild').configure { dependsOn 'copyVelocity' }

@@ -1,0 +1,29 @@
+name: Live Cloudflare diagnostics
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify shipped standalone matches source
+        run: |
+          npm run build
+          git diff --exit-code -- dist/Velocity.html
+      - name: Run actual Cloudflare requests in desktop Chrome
+        run: node scripts/live-smoke.mjs
+      - name: Upload exact errors, request diagnostics, and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-cloudflare-diagnostics
+          path: live-diagnostics/
+          if-no-files-found: warn
+          retention-days: 7
