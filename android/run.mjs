@@ -53,7 +53,8 @@ const handler = (request, response) => {
       assert.ok(length > 0);
       counts.uploads++;
       origins.add(request.headers.origin || 'same-origin');
-      const timer = setTimeout(() => response.end(), 250);
+      // Keep the 4-stream comparison below its per-run payload allowance.
+      const timer = setTimeout(() => response.end(), 500);
       response.once('close', () => clearTimeout(timer));
     } else response.writeHead(404).end();
   })().catch(error => { console.error(error); response.destroy(error); });
@@ -66,6 +67,9 @@ try {
   for (const [index, server] of servers.entries()) await new Promise(resolve => server.listen(4174 + index, '127.0.0.1', resolve));
   await adb('reverse', 'tcp:4174', 'tcp:4174');
   await adb('reverse', 'tcp:4175', 'tcp:4175');
+  await adb('shell', 'svc', 'power', 'stayon', 'true');
+  await adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP');
+  await adb('shell', 'wm', 'dismiss-keyguard');
   await adb('install', '-r', join(root, 'android/app/build/outputs/apk/debug/app-debug.apk'));
   for (const [testCase, url] of [
     ['fixture-http', 'http://127.0.0.1:4174/fixture'],

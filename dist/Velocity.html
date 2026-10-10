@@ -20,6 +20,14 @@
 
 .legend-monitor::before { background: #40d8ac; }
 
+.diagnostic-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 15px; border-bottom:1px solid var(--border); }
+.diagnostic-actions .button { min-height:36px; padding:7px 10px; }
+.diagnostic-actions>span { color:var(--subtle); font-size:10px; line-height:1.5; }
+.diagnostic-fallback { padding:0 15px 10px; }
+.diagnostic-fallback label { display:block; color:var(--muted); font-size:10px; margin:7px 0; }
+.diagnostic-fallback textarea { display:block; width:100%; height:105px; resize:vertical; background:#090d16; border:1px solid var(--border); border-radius:7px; color:var(--text); padding:8px; font:10px/1.5 var(--mono); }
+.log-content { min-height:70px; }
+
 .table-btn { background: #ffffff08; border: 1px solid #ffffff15; color: #a9bdd3; border-radius: 6px; padding: 5px 8px; margin-right: 5px; cursor: pointer; font: inherit; }
 .positive { color: #40d8ac; }
 .negative { color: #fb7185; }
@@ -457,7 +465,7 @@ class SpeedTestEngine {
     now = () => performance.now(), durationScale = 1,
     idleProbeCount = 8, idleProbeGapMs = 150,
     requestTimeoutMs = 6000, latencyTimeoutMs = Math.min(2000, requestTimeoutMs), sampleIntervalMs = 250,
-    initialDownloadBytes = 1024 * 1024, initialUploadBytes = 64 * 1024,
+    initialDownloadBytes = 1024 * 1024, initialUploadBytes = 16 * 1024,
     maxDownloadBytes = 16 * 1024 * 1024, maxUploadBytes = 4 * 1024 * 1024,
   } = {}) {
     if (typeof fetchImpl !== 'function') throw new TypeError('Fetch is unavailable in this browser');
@@ -563,7 +571,16 @@ class SpeedTestEngine {
         result.status = 'budget';
         result.stopReason = 'payload budget reached';
       } else if (result.errors.length) result.status = 'partial';
-      else result.status = 'completed';
+      else {
+        const missingLatency = ['idle', 'download', 'upload'].filter(phase =>
+          !result.latency[phase].some(sample => sample.ms !== null));
+        if (missingLatency.length) {
+          result.status = 'partial';
+          for (const phase of missingLatency) {
+            this._recordError(context, phase, 'No completed latency probes during this phase');
+          }
+        } else result.status = 'completed';
+      }
     } catch (error) {
       this._recordError(context, context.phase, `Measurement failed: ${error.message}`);
       result.status = 'failed';
@@ -600,7 +617,12 @@ class SpeedTestEngine {
 
   async _request(context, phase, { bytes, body, signal, onChunk = () => {}, timeoutMs = this.config.requestTimeoutMs }) {
     const requestScope = scope(signal);
-    const timeout = setTimeout(() => requestScope.controller.abort('timeout'), timeoutMs);
+    let timeout;
+    const armTimeout = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => requestScope.controller.abort('timeout'), timeoutMs);
+    };
+    armTimeout();
     let reader;
     let fullyRead = false;
     try {
@@ -624,12 +646,18 @@ class SpeedTestEngine {
       if (!upload && bytes > 0 && /text\/html|application\/json/i.test(contentType)) {
         throw new RequestError('Unexpected download response content type', 'body');
       }
+      // A healthy slow download may take longer than one request timeout.
+      // Bound the wait for headers, then each gap between body chunks. The
+      // enclosing phase deadline still bounds the total measurement duration.
+      const progressiveDownload = !upload && bytes > 0;
+      if (progressiveDownload) armTimeout();
       let received = 0;
       if (response.body?.getReader) {
         reader = response.body.getReader();
         while (true) {
           const { done, value } = await abortable(reader.read(), requestScope.signal);
           if (done) break;
+          if (progressiveDownload && value.byteLength > 0) armTimeout();
           received += value.byteLength;
           // Protect latency probes and malformed endpoint responses from becoming
           // unbounded, unbudgeted downloads.
@@ -766,7 +794,8 @@ class SpeedTestEngine {
           failures = 0;
           const elapsed = Math.max(1, this.now() - requestStarted);
           const maxChunk = upload ? this.config.maxUploadBytes : this.config.maxDownloadBytes;
-          chunkSize = Math.min(maxChunk, Math.max(64 * 1024, Math.round(bytes * 750 / elapsed)));
+          const minChunk = upload ? 4 * 1024 : 64 * 1024;
+          chunkSize = Math.min(maxChunk, Math.max(minChunk, Math.round(bytes * 750 / elapsed)));
         } catch (error) {
           if (phaseScope.signal.aborted) break;
           // A malformed/truncated/failed response is not validated test traffic.
@@ -781,6 +810,13 @@ class SpeedTestEngine {
             }
           }
           failures++;
+          // Fetch cannot expose upload progress. If an acknowledgement times
+          // out, try a smaller body so a slow uplink can produce an observed
+          // result. The failed body remains charged to the payload budget and
+          // never receives upload-speed credit.
+          if (upload && error.code === 'timeout') {
+            chunkSize = Math.min(chunkSize, this.config.maxUploadBytes, Math.max(4 * 1024, Math.floor(bytes / 4)));
+          }
           if (data.errors.length < 50) data.errors.push(error.message);
           this._recordError(context, phase, error.message);
           if (failures >= 3) return;
@@ -833,6 +869,28 @@ let audioContext;
 let toastTimer;
 let phase = 'idle';
 const plots = new Map();
+const recentLogs = [];
+const runtimeErrors = [];
+let activeRun = null;
+let lastRun = null;
+
+function errorText(error) {
+  return String(error?.stack || error?.message || error || 'Unknown error').slice(0, 6000);
+}
+
+function runtimeInfo() {
+  return {
+    version: APP_VERSION,
+    protocol: globalThis.location?.protocol || 'unavailable',
+    context: window.top ? (window.top === window ? 'top-level' : 'embedded') : 'unavailable',
+    secure: typeof globalThis.isSecureContext === 'boolean' ? globalThis.isSecureContext : null,
+    browser: globalThis.navigator?.userAgent || 'unavailable',
+    visibility: document.hidden ? 'hidden' : 'visible',
+    online: typeof globalThis.navigator?.onLine === 'boolean' ? globalThis.navigator.onLine : null,
+    fetch: typeof globalThis.fetch,
+    xhr: typeof globalThis.XMLHttpRequest,
+  };
+}
 
 function toast(message) {
   set('toast', message);
@@ -842,13 +900,72 @@ function toast(message) {
 }
 
 function log(message, level = 'info') {
+  const timestamp = new Date();
+  recentLogs.push({time:timestamp.toISOString(), level, message:String(message).slice(0, 6000)});
+  if (recentLogs.length > 300) recentLogs.shift();
   const line = document.createElement('div');
   line.className = `log-line ${level}`;
-  line.textContent = `${new Date().toLocaleTimeString()}  ${message}`;
+  line.textContent = `${timestamp.toLocaleTimeString()}  ${message}`;
   $('logContent').append(line);
   while ($('logContent').childElementCount > 300) $('logContent').firstChild.remove();
   $('logContent').scrollTop = $('logContent').scrollHeight;
 }
+
+function recordRuntimeError(error, source) {
+  const detail = {time:new Date().toISOString(), source, detail:errorText(error)};
+  runtimeErrors.push(detail);
+  if (runtimeErrors.length > 20) runtimeErrors.shift();
+  log(`${source}: ${detail.detail}`, 'error');
+  set('runtimeIssue', `App error: ${error?.message || String(error)}. Open Logs to copy the diagnostic report.`);
+  $('runtimeIssue').hidden = false;
+}
+
+function diagnosticsText() {
+  const describe = result => result ? {
+    id:result.id, startedAt:result.startedAt, kind:result.kind, status:result.status,
+    stopReason:result.stopReason, settings:result.settings, durationSeconds:result.durationSeconds,
+    download:result.download && {mbps:result.download.mbps,bytes:result.download.bytes,status:result.download.status,errors:result.download.errors},
+    upload:result.upload && {mbps:result.upload.mbps,bytes:result.upload.bytes,status:result.upload.status,errors:result.upload.errors},
+    latency:Object.fromEntries(Object.entries(result.latency || {}).map(([key, samples]) => [key, summarizeLatency(samples)])),
+    budget:result.budget, errors:result.errors,
+  } : null;
+  return JSON.stringify({
+    app:'Velocity', generatedAt:new Date().toISOString(), runtime:runtimeInfo(),
+    activeRun, lastRun:lastRun && {...lastRun, result:describe(lastRun.result)},
+    viewedSavedRun:current && current.id !== lastRun?.result?.id ? describe(current) : null,
+    runtimeErrors, logs:recentLogs,
+  }, null, 2);
+}
+
+function revealDiagnostics() {
+  const report = $('diagnosticReport');
+  report.value = diagnosticsText();
+  $('diagnosticFallback').hidden = false;
+  return report;
+}
+
+async function copyDiagnostics() {
+  const report = revealDiagnostics();
+  try {
+    if (typeof globalThis.navigator?.clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
+    await globalThis.navigator.clipboard.writeText(report.value);
+    toast('Diagnostic report copied.');
+  } catch {
+    report.focus();
+    report.select();
+    toast('Select and copy the report below.');
+  }
+}
+
+function downloadText(text, name, type) {
+  const url=URL.createObjectURL(new Blob([text],{type}));
+  const link=document.createElement('a');link.href=url;link.download=name;
+  document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+window.addEventListener('error', event => recordRuntimeError(event.error || event.message, 'Uncaught runtime error'));
+window.addEventListener('unhandledrejection', event => recordRuntimeError(event.reason, 'Unhandled promise rejection'));
 
 function tone(done = false) {
   if (!audible) return;
@@ -1012,7 +1129,13 @@ function event(event) {
     plotResult(live);
   }
 }
-const engine = new SpeedTestEngine({onEvent:event});
+const engine = new SpeedTestEngine({onEvent:measurement => {
+  try { event(measurement); }
+  catch (error) {
+    recordRuntimeError(error, `Rendering ${measurement.type}${measurement.phase ? ` (${measurement.phase})` : ''}`);
+    engine.stop('display error');
+  }
+}});
 
 function blank(kind='speed',label='') {
   return {kind,label,download:{samples:[]},upload:{samples:[]},latency:{idle:[],download:[],upload:[],monitor:[]}};
@@ -1039,8 +1162,11 @@ function setBusy(value) {
 async function start(e) {
   e.preventDefault();if(busy)return;
   stopRequested=false;current=null;setBusy(true);tone();
+  $('runtimeIssue').hidden = true;
+  let executionFailed = false;
   const mode=$('mode').value;
   const options={duration:Number($('duration').value),streams:Number($('streams').value),budgetBytes:Number($('budget').value)*1e6,label:$('label').value.trim(),monitorMinutes:Number($('monitorMinutes').value),probeIntervalMs:mode==='monitor'?1000:400};
+  activeRun = {startedAt:new Date().toISOString(),mode,options:{...options}};
   const sequence=mode==='compare'?[1,options.streams]:[options.streams];
   const pair=[];
   if(mode==='compare')options.budgetBytes=Math.floor(options.budgetBytes/2);
@@ -1053,6 +1179,7 @@ async function start(e) {
       if(mode==='monitor')showMonitor(live);
       log(`Starting ${mode==='monitor'?'monitor':`${streams}-stream speed test`}${label?` · ${label}`:''}`);
       const result=await (mode==='monitor'?engine.monitor({...options,label}):engine.run({...options,streams,label}));
+      lastRun = {...activeRun, finishedAt:new Date().toISOString(), result};
       current=result;pair.push(result);history=store.add(result);renderHistory();showSummary(result);plotResult(result);
       set('statusBadge',result.status.toUpperCase());set('statusText',`${mode==='monitor'?'Monitor':'Test'} ${result.status}`);
       gauge(mode==='monitor'?summarizeLatency(result.latency.monitor).median:result.download.mbps,mode==='monitor'?'ms':'Mbps',result.status.toUpperCase(),result.label || 'Result saved on this device');
@@ -1062,9 +1189,15 @@ async function start(e) {
     if(pair.length===2) { $('compareA').value=pair[0].id;$('compareB').value=pair[1].id;renderComparison(); }
     tone(true);
   } catch(error) {
-    log(error.message,'error');toast(`Unable to finish: ${error.message}`);set('statusText','Test failed');
+    executionFailed = true;
+    lastRun = {...activeRun, finishedAt:new Date().toISOString(), failure:errorText(error), result:current};
+    recordRuntimeError(error, 'Test execution');
+    set('statusText','Test failed');
+    set('resultIssues',`The test could not finish: ${error?.message || String(error)}. Open Logs for the diagnostic report.`);
+    $('resultIssues').hidden=false;
   } finally {
-    live=null;setBusy(false);if(current)set('statusBadge',current.status.toUpperCase());
+    activeRun=null;live=null;setBusy(false);
+    if(executionFailed)set('statusBadge','FAILED');else if(current)set('statusBadge',current.status.toUpperCase());
     persistenceWarning();
   }
 }
@@ -1146,9 +1279,15 @@ $('soundToggle').addEventListener('click',()=>{audible=!audible;$('soundToggle')
 $('logsToggle').addEventListener('click',()=>{$('logDrawer').hidden=false;$('logsToggle').setAttribute('aria-expanded','true');$('closeLogs').focus();});
 $('closeLogs').addEventListener('click',()=>{$('logDrawer').hidden=true;$('logsToggle').setAttribute('aria-expanded','false');$('logsToggle').focus();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('logDrawer').hidden)$('closeLogs').click();});
-$('clearLogs').addEventListener('click',()=>{$('logContent').replaceChildren();});
+$('clearLogs').addEventListener('click',()=>{$('logContent').replaceChildren();recentLogs.length=0;});
+$('copyDiagnostics').addEventListener('click',copyDiagnostics);
+$('saveDiagnostics').addEventListener('click',()=>{
+  const report=revealDiagnostics();
+  try {downloadText(report.value,`velocity-diagnostics-${APP_VERSION}.json`,'application/json');}
+  catch(error) {report.focus();report.select();toast('Select and copy the report below.');}
+});
 $('clearHistory').addEventListener('click',()=>{if(busy)return;if(window.confirm('Delete all saved test history on this device?')){history=store.clear();renderHistory();}});
-$('exportCsv').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([toCSV(history)],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=`velocity-history-${new Date().toISOString().slice(0,10)}.csv`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+$('exportCsv').addEventListener('click',()=>{downloadText(toCSV(history),`velocity-history-${new Date().toISOString().slice(0,10)}.csv`,'text/csv;charset=utf-8');});
 for(const id of ['compareA','compareB'])$(id).addEventListener('change',renderComparison);
 $('trendMetric').addEventListener('change',renderTrend);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&busy){stopRequested=true;engine.stop('background');log('Test interrupted because the tab was hidden. Keep it visible for reliable timings.','warn');}});
@@ -1159,6 +1298,7 @@ window.addEventListener('storage',()=>{if(!busy){history=store.load();renderHist
 controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
 log(`Velocity ${APP_VERSION} ready. No measurements or external requests until you start a test.`);
 const pageProtocol=globalThis.location?.protocol || 'unavailable';
+$('localFileNotice').hidden=!['file:','content:','data:','blob:'].includes(pageProtocol);
 const pageContext=window.top ? (window.top===window?'top-level':'embedded') : 'unavailable';
 const secureContext=typeof globalThis.isSecureContext==='boolean'?String(globalThis.isSecureContext):'unavailable';
 log(`Runtime: protocol=${pageProtocol}; context=${pageContext}; secure=${secureContext}.`);
@@ -1188,8 +1328,9 @@ return {};
     <main id="main" class="container">
       <section class="page-intro" aria-labelledby="pageTitle">
         <div><p class="eyebrow">YOUR NETWORK, MEASURED</p><h1 id="pageTitle">A clearer picture of<br class="mobile-break"> your connection.</h1><p class="intro-copy">Speed is just the beginning. See latency under load, find interruptions, and compare what changed.</p></div>
-        <div class="endpoint"><span id="statusBadge" class="status-badge">READY</span><span id="statusText" role="status">Ready to test</span><span id="endpointText">Cloudflare · <span id="appVersion" data-version="3.0.2">v3.0.2</span></span></div>
+        <div class="endpoint"><span id="statusBadge" class="status-badge">READY</span><span id="statusText" role="status">Ready to test</span><span id="endpointText">Cloudflare · <span id="appVersion" data-version="3.0.3">v3.0.3</span></span></div>
       </section>
+      <p id="localFileNotice" class="notice notice-warning" hidden>File viewers can restrict network requests. <a href="https://velocity-network-lab.lasertechmn.chatgpt.site" target="_blank" rel="noopener" style="text-decoration:underline">Open Velocity on the web</a> if this copy cannot connect. Saved history stays in the browser where you ran the test.</p>
 
       <section class="panel settings-panel" aria-labelledby="settingsTitle">
         <div class="section-heading compact"><h2 id="settingsTitle">Make it your test</h2><span class="quiet-tag">No account needed</span></div>
@@ -1230,6 +1371,7 @@ return {};
         </div>
         <div id="monitorSummary" class="monitor-summary" hidden aria-label="Stability monitor summary"><div><span>Successful probes</span><strong id="monitorCount">0</strong></div><div><span>Failed requests</span><strong id="monitorFailures">0</strong></div><div><span>95th-percentile latency</span><strong id="monitorP95">—</strong></div><div><span>Observation gaps</span><strong id="monitorGaps">0</strong></div></div>
         <div id="resultIssues" class="result-issues" role="status"></div>
+        <div id="runtimeIssue" class="result-issues" role="alert" hidden></div>
       </section>
 
       <div class="insights-grid">
@@ -1245,7 +1387,7 @@ return {};
       <footer class="site-footer"><span class="footer-brand">VELOCITY<span class="footer-dot"> / </span><span>Clarity for your connection.</span></span><span>Built for real measurements.</span></footer>
     </main>
 
-    <aside id="logDrawer" class="log-drawer" hidden aria-label="Network activity log"><div class="log-drawer-heading"><div><p class="eyebrow">UNDER THE HOOD</p><h2>Network activity</h2></div><div class="section-actions"><button id="clearLogs" type="button" class="button button-quiet">Clear</button><button id="closeLogs" type="button" class="button button-quiet" aria-label="Close network log">✕</button></div></div><div id="logContent" class="log-content" role="log" aria-live="off"><p class="muted">Test activity will appear here.</p></div></aside>
+    <aside id="logDrawer" class="log-drawer" hidden aria-label="Network activity log"><div class="log-drawer-heading"><div><p class="eyebrow">UNDER THE HOOD</p><h2>Network activity</h2></div><div class="section-actions"><button id="clearLogs" type="button" class="button button-quiet">Clear</button><button id="closeLogs" type="button" class="button button-quiet" aria-label="Close network log">✕</button></div></div><div class="diagnostic-actions"><button id="copyDiagnostics" type="button" class="button button-quiet">Copy report</button><button id="saveDiagnostics" type="button" class="button button-quiet">Save report</button><span>Includes browser details, last test, and errors.</span></div><div id="diagnosticFallback" class="diagnostic-fallback" hidden><label for="diagnosticReport">Diagnostic report · select and copy if needed</label><textarea id="diagnosticReport" readonly rows="6" spellcheck="false"></textarea></div><div id="logContent" class="log-content" role="log" aria-live="off"><p class="muted">Test activity will appear here.</p></div></aside>
     <div id="toast" class="toast" role="status" hidden></div>
     <noscript><div class="noscript">Velocity needs JavaScript to make network requests and display measurements. Enable JavaScript, then reload this page.</div></noscript>
   </body>

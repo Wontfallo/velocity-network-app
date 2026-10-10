@@ -138,13 +138,25 @@ the build, page protocol, embedding context, and browser user agent in local
 diagnostic logs. Browser API receiver errors are distinguished from network/CORS
 failures. This follows a delivery error: the original saved HTML attachment
 still contained the unbound fetch after the repository was fixed. A new GitHub
-commit cannot update a previously downloaded file. Check for **v3.0.2** in the
+commit cannot update a previously downloaded file. Check the visible version in the
 app itself when replacing an older copy. JavaScript is already enabled if the
 app can display a run error; changing that setting does not fix this bug.
 
-Chrome desktop automation is not an Android device test. Android Chrome, Brave,
-and individual WebView hosts still need device verification; file/preview hosts
-can also impose their own network and storage rules.
+Version 3.0.3 fixes confirmed slow-link and error-display defects. Download
+requests time out on inactivity instead of discarding continuously arriving
+bytes after six seconds. Uploads start smaller and reduce request size after a
+timeout, counting only acknowledged bodies. A completed speed run must have a
+successful idle probe and a probe under each transfer direction; missing
+latency keeps the run partial. Failed UI executions stay visibly failed, with
+the original error available through Logs → Copy report or Save report.
+
+`scripts/live-smoke.mjs` checks the exact shipped artifact against Cloudflare,
+with native desktop Chrome network diagnostics and screenshots. The separate
+Android workflow builds a native WebView host and runs an Android 16 emulator;
+see `android/README.md`. Its local-file case records platform restrictions as
+diagnostics, not a successful speed test. Consult each workflow's actual
+result: adding a test does not establish that it passed. Emulator coverage
+does not establish compatibility with every physical phone or WebView host.
 
 ## References
 

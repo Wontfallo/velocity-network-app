@@ -97,7 +97,7 @@ export class SpeedTestEngine {
     now = () => performance.now(), durationScale = 1,
     idleProbeCount = 8, idleProbeGapMs = 150,
     requestTimeoutMs = 6000, latencyTimeoutMs = Math.min(2000, requestTimeoutMs), sampleIntervalMs = 250,
-    initialDownloadBytes = 1024 * 1024, initialUploadBytes = 64 * 1024,
+    initialDownloadBytes = 1024 * 1024, initialUploadBytes = 16 * 1024,
     maxDownloadBytes = 16 * 1024 * 1024, maxUploadBytes = 4 * 1024 * 1024,
   } = {}) {
     if (typeof fetchImpl !== 'function') throw new TypeError('Fetch is unavailable in this browser');
@@ -203,7 +203,16 @@ export class SpeedTestEngine {
         result.status = 'budget';
         result.stopReason = 'payload budget reached';
       } else if (result.errors.length) result.status = 'partial';
-      else result.status = 'completed';
+      else {
+        const missingLatency = ['idle', 'download', 'upload'].filter(phase =>
+          !result.latency[phase].some(sample => sample.ms !== null));
+        if (missingLatency.length) {
+          result.status = 'partial';
+          for (const phase of missingLatency) {
+            this._recordError(context, phase, 'No completed latency probes during this phase');
+          }
+        } else result.status = 'completed';
+      }
     } catch (error) {
       this._recordError(context, context.phase, `Measurement failed: ${error.message}`);
       result.status = 'failed';
@@ -240,7 +249,12 @@ export class SpeedTestEngine {
 
   async _request(context, phase, { bytes, body, signal, onChunk = () => {}, timeoutMs = this.config.requestTimeoutMs }) {
     const requestScope = scope(signal);
-    const timeout = setTimeout(() => requestScope.controller.abort('timeout'), timeoutMs);
+    let timeout;
+    const armTimeout = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => requestScope.controller.abort('timeout'), timeoutMs);
+    };
+    armTimeout();
     let reader;
     let fullyRead = false;
     try {
@@ -264,12 +278,18 @@ export class SpeedTestEngine {
       if (!upload && bytes > 0 && /text\/html|application\/json/i.test(contentType)) {
         throw new RequestError('Unexpected download response content type', 'body');
       }
+      // A healthy slow download may take longer than one request timeout.
+      // Bound the wait for headers, then each gap between body chunks. The
+      // enclosing phase deadline still bounds the total measurement duration.
+      const progressiveDownload = !upload && bytes > 0;
+      if (progressiveDownload) armTimeout();
       let received = 0;
       if (response.body?.getReader) {
         reader = response.body.getReader();
         while (true) {
           const { done, value } = await abortable(reader.read(), requestScope.signal);
           if (done) break;
+          if (progressiveDownload && value.byteLength > 0) armTimeout();
           received += value.byteLength;
           // Protect latency probes and malformed endpoint responses from becoming
           // unbounded, unbudgeted downloads.
@@ -406,7 +426,8 @@ export class SpeedTestEngine {
           failures = 0;
           const elapsed = Math.max(1, this.now() - requestStarted);
           const maxChunk = upload ? this.config.maxUploadBytes : this.config.maxDownloadBytes;
-          chunkSize = Math.min(maxChunk, Math.max(64 * 1024, Math.round(bytes * 750 / elapsed)));
+          const minChunk = upload ? 4 * 1024 : 64 * 1024;
+          chunkSize = Math.min(maxChunk, Math.max(minChunk, Math.round(bytes * 750 / elapsed)));
         } catch (error) {
           if (phaseScope.signal.aborted) break;
           // A malformed/truncated/failed response is not validated test traffic.
@@ -421,6 +442,13 @@ export class SpeedTestEngine {
             }
           }
           failures++;
+          // Fetch cannot expose upload progress. If an acknowledgement times
+          // out, try a smaller body so a slow uplink can produce an observed
+          // result. The failed body remains charged to the payload budget and
+          // never receives upload-speed credit.
+          if (upload && error.code === 'timeout') {
+            chunkSize = Math.min(chunkSize, this.config.maxUploadBytes, Math.max(4 * 1024, Math.floor(bytes / 4)));
+          }
           if (data.errors.length < 50) data.errors.push(error.message);
           this._recordError(context, phase, error.message);
           if (failures >= 3) return;

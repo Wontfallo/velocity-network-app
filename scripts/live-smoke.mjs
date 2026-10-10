@@ -1,6 +1,6 @@
 // Live desktop Chrome diagnostics, using the exact shipped standalone HTML.
 // No endpoint substitution, fetch interception, security bypass, or fake UA.
-// Two runs at 50 MB/run reserve at most 100 MB of application payload in total.
+// Two runs at 250 MB/run reserve at most 500 MB of application payload in total.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -91,7 +91,7 @@ const exerciseApp = expectedVersion => `
   if (actualVersion !== ${JSON.stringify(expectedVersion)}) throw new Error('Visible build version differs from package.json: ' + actualVersion);
   byId('duration').value = '5';
   byId('streams').value = '1';
-  byId('budget').value = '50';
+  byId('budget').value = '250';
   byId('label').value = 'Live Cloudflare ' + location.protocol;
   const testStartedAt = performance.now();
   byId('startBtn').click();
@@ -123,36 +123,46 @@ const exerciseApp = expectedVersion => `
 function assess(diagnostic) {
   const problems = [];
   const result = diagnostic.app?.result;
+  const probeCounts = {};
+  const transportErrors = diagnostic.network.filter(request => request.errorText && !request.canceled)
+    .map(({url,errorText,corsErrorStatus,rawHttpStatus,status,rawHeaders}) => ({url,errorText,corsErrorStatus,httpStatus:rawHttpStatus ?? status ?? null,headers:rawHeaders}));
   if (diagnostic.error) problems.push(diagnostic.error);
   if (!result) problems.push('No saved result was available');
   else {
     if (result.settings.endpoint !== 'https://speed.cloudflare.com') problems.push('Unexpected endpoint');
-    if (result.budget.usedBytes > 50e6 || result.budget.limitBytes !== 50e6) problems.push('Payload budget was not respected');
+    if (result.budget.usedBytes > 250e6 || result.budget.limitBytes !== 250e6) problems.push('Payload budget was not respected');
     for (const direction of ['download', 'upload']) {
       if (!(result[direction].bytes > 0 && result[direction].mbps > 0)) problems.push(`No valid ${direction} measurement`);
     }
     for (const phase of ['idle', 'download', 'upload']) {
       const valid = result.latency[phase].filter(sample => Number.isFinite(sample.ms)).length;
+      probeCounts[phase] = valid;
       if (valid < 3) problems.push(`${phase}: only ${valid} successful latency probes (need at least 3)`);
     }
     if (!['completed','budget'].includes(result.status)) problems.push(`Run status: ${result.status}`);
     if (result.errors.length) problems.push(...result.errors);
   }
   if (diagnostic.app?.timedOut) problems.push('App exceeded live diagnostic time limit');
-  const truthfulIncomplete = result?.status === 'budget'
+  const truthfulIncomplete = !transportErrors.length && result?.status === 'budget'
     && diagnostic.app.display.resultIssues.includes('Incomplete measurements')
     && diagnostic.app.display.bufferGrade.trim() === '—';
   return {
     ok:problems.length === 0,
     outcome:problems.length === 0 ? 'live measurements verified' : truthfulIncomplete ? 'truthfully reported incomplete budget-limited measurement' : 'live measurement failure',
     problems:[...new Set(problems)],
+    transportErrors, probeCounts, budgetLimited:result?.status === 'budget',
   };
 }
+
+const diagnosticHeaders = headers => Object.fromEntries(Object.entries(headers)
+  .filter(([key]) => /^(access-control-|content-type$|content-encoding$|content-length$|cf-ray$|server$|retry-after$|via$)/i.test(key)));
 
 async function run(label, url) {
   const profile = await mkdtemp(join(tmpdir(), 'velocity-live-'));
   const diagnostic = {label, startedAt:new Date().toISOString(), version, artifactSha256, network:[], console:[]};
   const requests = new Map();
+  const requestExtras = new Map();
+  const responseExtras = new Map();
   let stderr = '';
   let child;
   let cdp;
@@ -175,13 +185,26 @@ async function run(label, url) {
         pageLoaded?.();
       } else if (message.method === 'Network.requestWillBeSent' && event.request.url.startsWith('https://speed.cloudflare.com/')) {
         const item = {id:event.requestId,url:event.request.url,method:event.request.method,start:event.timestamp,origin:event.request.headers.Origin ?? event.request.headers.origin ?? null};
+        Object.assign(item, requestExtras.get(event.requestId), responseExtras.get(event.requestId));
         requests.set(event.requestId, item);
         diagnostic.network.push(item);
+      } else if (message.method === 'Network.requestWillBeSentExtraInfo') {
+        // The actual Origin header is added below the renderer and may be
+        // absent from requestWillBeSent. Do not retain cookies or POST bodies.
+        const extra = {origin:event.headers.Origin ?? event.headers.origin ?? null};
+        requestExtras.set(event.requestId, extra);
+        if (requests.has(event.requestId)) Object.assign(requests.get(event.requestId), extra);
+      } else if (message.method === 'Network.responseReceivedExtraInfo') {
+        // CORS-blocked responses may never produce responseReceived. This
+        // lower-level event preserves their HTTP status and allow-origin header.
+        const extra = {rawHttpStatus:event.statusCode, rawHeaders:diagnosticHeaders(event.headers)};
+        responseExtras.set(event.requestId, extra);
+        if (requests.has(event.requestId)) Object.assign(requests.get(event.requestId), extra);
       } else if (message.method === 'Network.responseReceived' && requests.has(event.requestId)) {
         const item = requests.get(event.requestId);
         const response = event.response;
         Object.assign(item, {status:response.status,protocol:response.protocol,mimeType:response.mimeType,timing:response.timing});
-        item.headers = Object.fromEntries(Object.entries(response.headers).filter(([key]) => /^(access-control-|content-type$|content-encoding$|content-length$|cf-ray$|server$)/i.test(key)));
+        item.headers = diagnosticHeaders(response.headers);
       } else if (message.method === 'Network.loadingFinished' && requests.has(event.requestId)) {
         Object.assign(requests.get(event.requestId), {end:event.timestamp,encodedDataLength:event.encodedDataLength});
       } else if (message.method === 'Network.loadingFailed' && requests.has(event.requestId)) {
@@ -228,7 +251,7 @@ async function run(label, url) {
   }
   Object.assign(diagnostic, assess(diagnostic));
   await writeFile(join(output, `${label}.json`), JSON.stringify(diagnostic, null, 2));
-  console.log(JSON.stringify({label,ok:diagnostic.ok,outcome:diagnostic.outcome,status:diagnostic.app?.result?.status,problems:diagnostic.problems,display:diagnostic.app?.display,cloudflareRequests:diagnostic.network.length},null,2));
+  console.log(JSON.stringify({label,ok:diagnostic.ok,outcome:diagnostic.outcome,status:diagnostic.app?.result?.status,problems:diagnostic.problems,probeCounts:diagnostic.probeCounts,budgetLimited:diagnostic.budgetLimited,transportErrors:diagnostic.transportErrors,display:diagnostic.app?.display,cloudflareRequests:diagnostic.network.length},null,2));
   return diagnostic;
 }
 
@@ -242,11 +265,11 @@ try {
 }
 const summary = {
   version, artifactSha256, scope:'Desktop Chrome on this runner; actual Cloudflare endpoint; no Android/Brave/WebView claim',
-  maximumReservedPayloadBytes:100e6,
+  maximumReservedPayloadBytes:500e6,
   results:results.map(({label,ok,outcome,problems}) => ({label,ok,outcome,problems})),
 };
 await writeFile(join(output, 'summary.json'), JSON.stringify(summary,null,2));
 if (process.env.GITHUB_STEP_SUMMARY) {
-  await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Live Cloudflare browser diagnostics\n\nBuild ${version}, SHA-256 \`${artifactSha256}\`. Actual standalone bytes over HTTP and file:, desktop Chrome. No transport mocks. At most 100 MB reserved payload total.\n\n${summary.results.map(result => `- **${result.label}: ${result.outcome}**${result.problems.length ? '\n  ' + result.problems.join('; ') : ''}`).join('\n')}\n\nJSON includes exact app errors, CORS/network events, console and timing data. Screenshots are in the uploaded artifact. Incomplete results do not count as successful live verification.\n`);
+  await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Live Cloudflare browser diagnostics\n\nBuild ${version}, SHA-256 \`${artifactSha256}\`. Actual standalone bytes over HTTP and file:, desktop Chrome. No transport mocks. At most 500 MB reserved payload total.\n\n${summary.results.map(result => `- **${result.label}: ${result.outcome}**${result.problems.length ? '\n  ' + result.problems.join('; ') : ''}`).join('\n')}\n\nJSON includes exact app errors, raw HTTP status/headers behind CORS failures, browser console and timing data. Screenshots are in the uploaded artifact. Budget exhaustion is distinguished from transport failure; incomplete results do not count as successful live verification. This checks connectivity and completion, not independent throughput accuracy.\n`);
 }
 if (results.some(result => !result.ok)) process.exitCode = 1;

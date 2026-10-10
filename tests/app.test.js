@@ -117,6 +117,73 @@ test('browser API failure guidance identifies the running build', async () => {
   await app.assertHealthy();
 });
 
+test('unexpected engine exceptions leave a persistent FAILED state and a copyable stack; retry recovers', async () => {
+  const app = boot({run:(options,index) => {
+    if (index === 1) throw new TypeError('Transport startup failed');
+    return speedResult(options,index);
+  }});
+  await app.submit();
+  assert.equal(app.element('statusBadge').textContent,'FAILED');
+  assert.equal(app.element('startBtn').disabled,false);
+  assert.equal(app.element('stopBtn').disabled,true);
+  assert.equal(app.element('resultIssues').hidden,false);
+  assert.match(app.element('resultIssues').textContent,/Transport startup failed/);
+  assert.equal(app.element('runtimeIssue').hidden,false);
+  assert.equal(app.saved().length,0,'An exception does not create a fake measurement');
+  await app.element('copyDiagnostics').click();
+  assert.equal(app.element('diagnosticFallback').hidden,false);
+  assert.equal(app.state.selectedElement,app.element('diagnosticReport'),'File/WebView without Clipboard has a selectable fallback');
+  const report=JSON.parse(app.element('diagnosticReport').value);
+  assert.equal(report.activeRun,null);
+  assert.match(report.lastRun.failure,/TypeError: Transport startup failed/);
+  assert.match(report.runtimeErrors[0].detail,/app\.test\.js/,'Original stack is retained');
+  assert.equal(report.runtime.version,app.element('appVersion').getAttribute('data-version'));
+  await app.submit();
+  assert.equal(app.element('statusBadge').textContent,'COMPLETED');
+  assert.equal(app.element('runtimeIssue').hidden,true);
+  assert.equal(app.saved().length,1);
+  assert.equal(app.state.errors.length,0);
+});
+
+test('render callback exceptions are reported and stop the active run instead of disappearing', async () => {
+  let app;
+  app=boot({run:(options,index,engine) => {
+    const canvas=app.element('throughputChart');
+    const original=canvas.getContext;
+    canvas.getContext=()=>{throw new Error('Canvas rendering unavailable');};
+    engine.onEvent({type:'throughput',phase:'download',t:1,mbps:100,bytes:12500000,progress:0.2});
+    canvas.getContext=original;
+    return speedResult(options,index,'cancelled');
+  }});
+  await app.submit();
+  assert.deepEqual(app.engine.stops,['display error']);
+  assert.equal(app.element('runtimeIssue').hidden,false);
+  assert.match(app.element('runtimeIssue').textContent,/Canvas rendering unavailable/);
+  await app.element('copyDiagnostics').click();
+  const report=JSON.parse(app.element('diagnosticReport').value);
+  assert.match(report.runtimeErrors[0].source,/Rendering throughput \(download\)/);
+  assert.equal(report.lastRun.result.status,'cancelled');
+  assert.equal(app.element('startBtn').disabled,false);
+  assert.equal(app.state.errors.length,0);
+});
+
+test('diagnostics distinguish last execution from a viewed saved result and capture global errors', async () => {
+  const app=boot();
+  await app.submit();await app.submit();
+  await app.element('historyBody').children[1].children.at(-1).children[0].click();
+  await app.window.fire('unhandledrejection',{reason:new Error('Asynchronous UI failure')});
+  await app.element('saveDiagnostics').click();
+  const download=app.state.downloads.at(-1);
+  assert.match(download.download,/^velocity-diagnostics-.*\.json$/);
+  const report=JSON.parse(await app.blobs.get(download.href).text());
+  assert.equal(report.lastRun.result.id,'test-run-2');
+  assert.equal(report.viewedSavedRun.id,'test-run-1');
+  assert.equal(report.runtimeErrors[0].source,'Unhandled promise rejection');
+  assert.match(report.runtimeErrors[0].detail,/Asynchronous UI failure/);
+  assert.equal(app.element('downloadValue').textContent,'400.0','Collecting errors never overwrites measured readings');
+  assert.equal(app.state.errors.length,0);
+});
+
 test('compare enforces multi-stream selection, splits budget, saves sequential runs and selects the pair', async () => {
   let releaseFirst;
   const app = boot({run:(options,index) => index===1 ? new Promise(resolve => {releaseFirst=()=>resolve(speedResult(options,index));}) : speedResult(options,index)});

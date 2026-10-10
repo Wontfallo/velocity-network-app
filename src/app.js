@@ -17,6 +17,28 @@ let audioContext;
 let toastTimer;
 let phase = 'idle';
 const plots = new Map();
+const recentLogs = [];
+const runtimeErrors = [];
+let activeRun = null;
+let lastRun = null;
+
+function errorText(error) {
+  return String(error?.stack || error?.message || error || 'Unknown error').slice(0, 6000);
+}
+
+function runtimeInfo() {
+  return {
+    version: APP_VERSION,
+    protocol: globalThis.location?.protocol || 'unavailable',
+    context: window.top ? (window.top === window ? 'top-level' : 'embedded') : 'unavailable',
+    secure: typeof globalThis.isSecureContext === 'boolean' ? globalThis.isSecureContext : null,
+    browser: globalThis.navigator?.userAgent || 'unavailable',
+    visibility: document.hidden ? 'hidden' : 'visible',
+    online: typeof globalThis.navigator?.onLine === 'boolean' ? globalThis.navigator.onLine : null,
+    fetch: typeof globalThis.fetch,
+    xhr: typeof globalThis.XMLHttpRequest,
+  };
+}
 
 function toast(message) {
   set('toast', message);
@@ -26,13 +48,72 @@ function toast(message) {
 }
 
 function log(message, level = 'info') {
+  const timestamp = new Date();
+  recentLogs.push({time:timestamp.toISOString(), level, message:String(message).slice(0, 6000)});
+  if (recentLogs.length > 300) recentLogs.shift();
   const line = document.createElement('div');
   line.className = `log-line ${level}`;
-  line.textContent = `${new Date().toLocaleTimeString()}  ${message}`;
+  line.textContent = `${timestamp.toLocaleTimeString()}  ${message}`;
   $('logContent').append(line);
   while ($('logContent').childElementCount > 300) $('logContent').firstChild.remove();
   $('logContent').scrollTop = $('logContent').scrollHeight;
 }
+
+function recordRuntimeError(error, source) {
+  const detail = {time:new Date().toISOString(), source, detail:errorText(error)};
+  runtimeErrors.push(detail);
+  if (runtimeErrors.length > 20) runtimeErrors.shift();
+  log(`${source}: ${detail.detail}`, 'error');
+  set('runtimeIssue', `App error: ${error?.message || String(error)}. Open Logs to copy the diagnostic report.`);
+  $('runtimeIssue').hidden = false;
+}
+
+function diagnosticsText() {
+  const describe = result => result ? {
+    id:result.id, startedAt:result.startedAt, kind:result.kind, status:result.status,
+    stopReason:result.stopReason, settings:result.settings, durationSeconds:result.durationSeconds,
+    download:result.download && {mbps:result.download.mbps,bytes:result.download.bytes,status:result.download.status,errors:result.download.errors},
+    upload:result.upload && {mbps:result.upload.mbps,bytes:result.upload.bytes,status:result.upload.status,errors:result.upload.errors},
+    latency:Object.fromEntries(Object.entries(result.latency || {}).map(([key, samples]) => [key, summarizeLatency(samples)])),
+    budget:result.budget, errors:result.errors,
+  } : null;
+  return JSON.stringify({
+    app:'Velocity', generatedAt:new Date().toISOString(), runtime:runtimeInfo(),
+    activeRun, lastRun:lastRun && {...lastRun, result:describe(lastRun.result)},
+    viewedSavedRun:current && current.id !== lastRun?.result?.id ? describe(current) : null,
+    runtimeErrors, logs:recentLogs,
+  }, null, 2);
+}
+
+function revealDiagnostics() {
+  const report = $('diagnosticReport');
+  report.value = diagnosticsText();
+  $('diagnosticFallback').hidden = false;
+  return report;
+}
+
+async function copyDiagnostics() {
+  const report = revealDiagnostics();
+  try {
+    if (typeof globalThis.navigator?.clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
+    await globalThis.navigator.clipboard.writeText(report.value);
+    toast('Diagnostic report copied.');
+  } catch {
+    report.focus();
+    report.select();
+    toast('Select and copy the report below.');
+  }
+}
+
+function downloadText(text, name, type) {
+  const url=URL.createObjectURL(new Blob([text],{type}));
+  const link=document.createElement('a');link.href=url;link.download=name;
+  document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+window.addEventListener('error', event => recordRuntimeError(event.error || event.message, 'Uncaught runtime error'));
+window.addEventListener('unhandledrejection', event => recordRuntimeError(event.reason, 'Unhandled promise rejection'));
 
 function tone(done = false) {
   if (!audible) return;
@@ -196,7 +277,13 @@ function event(event) {
     plotResult(live);
   }
 }
-const engine = new SpeedTestEngine({onEvent:event});
+const engine = new SpeedTestEngine({onEvent:measurement => {
+  try { event(measurement); }
+  catch (error) {
+    recordRuntimeError(error, `Rendering ${measurement.type}${measurement.phase ? ` (${measurement.phase})` : ''}`);
+    engine.stop('display error');
+  }
+}});
 
 function blank(kind='speed',label='') {
   return {kind,label,download:{samples:[]},upload:{samples:[]},latency:{idle:[],download:[],upload:[],monitor:[]}};
@@ -223,8 +310,11 @@ function setBusy(value) {
 async function start(e) {
   e.preventDefault();if(busy)return;
   stopRequested=false;current=null;setBusy(true);tone();
+  $('runtimeIssue').hidden = true;
+  let executionFailed = false;
   const mode=$('mode').value;
   const options={duration:Number($('duration').value),streams:Number($('streams').value),budgetBytes:Number($('budget').value)*1e6,label:$('label').value.trim(),monitorMinutes:Number($('monitorMinutes').value),probeIntervalMs:mode==='monitor'?1000:400};
+  activeRun = {startedAt:new Date().toISOString(),mode,options:{...options}};
   const sequence=mode==='compare'?[1,options.streams]:[options.streams];
   const pair=[];
   if(mode==='compare')options.budgetBytes=Math.floor(options.budgetBytes/2);
@@ -237,6 +327,7 @@ async function start(e) {
       if(mode==='monitor')showMonitor(live);
       log(`Starting ${mode==='monitor'?'monitor':`${streams}-stream speed test`}${label?` · ${label}`:''}`);
       const result=await (mode==='monitor'?engine.monitor({...options,label}):engine.run({...options,streams,label}));
+      lastRun = {...activeRun, finishedAt:new Date().toISOString(), result};
       current=result;pair.push(result);history=store.add(result);renderHistory();showSummary(result);plotResult(result);
       set('statusBadge',result.status.toUpperCase());set('statusText',`${mode==='monitor'?'Monitor':'Test'} ${result.status}`);
       gauge(mode==='monitor'?summarizeLatency(result.latency.monitor).median:result.download.mbps,mode==='monitor'?'ms':'Mbps',result.status.toUpperCase(),result.label || 'Result saved on this device');
@@ -246,9 +337,15 @@ async function start(e) {
     if(pair.length===2) { $('compareA').value=pair[0].id;$('compareB').value=pair[1].id;renderComparison(); }
     tone(true);
   } catch(error) {
-    log(error.message,'error');toast(`Unable to finish: ${error.message}`);set('statusText','Test failed');
+    executionFailed = true;
+    lastRun = {...activeRun, finishedAt:new Date().toISOString(), failure:errorText(error), result:current};
+    recordRuntimeError(error, 'Test execution');
+    set('statusText','Test failed');
+    set('resultIssues',`The test could not finish: ${error?.message || String(error)}. Open Logs for the diagnostic report.`);
+    $('resultIssues').hidden=false;
   } finally {
-    live=null;setBusy(false);if(current)set('statusBadge',current.status.toUpperCase());
+    activeRun=null;live=null;setBusy(false);
+    if(executionFailed)set('statusBadge','FAILED');else if(current)set('statusBadge',current.status.toUpperCase());
     persistenceWarning();
   }
 }
@@ -330,9 +427,15 @@ $('soundToggle').addEventListener('click',()=>{audible=!audible;$('soundToggle')
 $('logsToggle').addEventListener('click',()=>{$('logDrawer').hidden=false;$('logsToggle').setAttribute('aria-expanded','true');$('closeLogs').focus();});
 $('closeLogs').addEventListener('click',()=>{$('logDrawer').hidden=true;$('logsToggle').setAttribute('aria-expanded','false');$('logsToggle').focus();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('logDrawer').hidden)$('closeLogs').click();});
-$('clearLogs').addEventListener('click',()=>{$('logContent').replaceChildren();});
+$('clearLogs').addEventListener('click',()=>{$('logContent').replaceChildren();recentLogs.length=0;});
+$('copyDiagnostics').addEventListener('click',copyDiagnostics);
+$('saveDiagnostics').addEventListener('click',()=>{
+  const report=revealDiagnostics();
+  try {downloadText(report.value,`velocity-diagnostics-${APP_VERSION}.json`,'application/json');}
+  catch(error) {report.focus();report.select();toast('Select and copy the report below.');}
+});
 $('clearHistory').addEventListener('click',()=>{if(busy)return;if(window.confirm('Delete all saved test history on this device?')){history=store.clear();renderHistory();}});
-$('exportCsv').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([toCSV(history)],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=`velocity-history-${new Date().toISOString().slice(0,10)}.csv`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+$('exportCsv').addEventListener('click',()=>{downloadText(toCSV(history),`velocity-history-${new Date().toISOString().slice(0,10)}.csv`,'text/csv;charset=utf-8');});
 for(const id of ['compareA','compareB'])$(id).addEventListener('change',renderComparison);
 $('trendMetric').addEventListener('change',renderTrend);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&busy){stopRequested=true;engine.stop('background');log('Test interrupted because the tab was hidden. Keep it visible for reliable timings.','warn');}});
@@ -343,6 +446,7 @@ window.addEventListener('storage',()=>{if(!busy){history=store.load();renderHist
 controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
 log(`Velocity ${APP_VERSION} ready. No measurements or external requests until you start a test.`);
 const pageProtocol=globalThis.location?.protocol || 'unavailable';
+$('localFileNotice').hidden=!['file:','content:','data:','blob:'].includes(pageProtocol);
 const pageContext=window.top ? (window.top===window?'top-level':'embedded') : 'unavailable';
 const secureContext=typeof globalThis.isSecureContext==='boolean'?String(globalThis.isSecureContext):'unavailable';
 log(`Runtime: protocol=${pageProtocol}; context=${pageContext}; secure=${secureContext}.`);

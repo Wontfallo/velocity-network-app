@@ -206,12 +206,136 @@ test('deadline aborts unfinished uploads without crediting their requested bytes
   assert.equal(result.status, 'partial');
 });
 
+test('successful transfers with no completed loaded probes remain an incomplete test', async () => {
+  let latencyCalls = 0;
+  const engine = new SpeedTestEngine({
+    ...testConfig, requestTimeoutMs: 500, latencyTimeoutMs: 500,
+    fetchImpl: async (url, init) => {
+      const bytes = Number(new URL(url).searchParams.get('bytes'));
+      if (init.method !== 'POST' && bytes === 0) {
+        // Idle succeeds; loaded probes settle only after their transfer phase.
+        if (++latencyCalls > testConfig.idleProbeCount) await wait(100);
+        return new Response();
+      }
+      await wait(2);
+      return new Response(init.method === 'POST' ? '{}' : new Uint8Array(bytes));
+    },
+  });
+  const result = await engine.run(testOptions);
+  assert.equal(result.download.status, 'completed');
+  assert.equal(result.upload.status, 'completed');
+  assert.ok(result.download.mbps > 0 && result.upload.mbps > 0);
+  assert.deepEqual(result.latency.download, []);
+  assert.deepEqual(result.latency.upload, []);
+  assert.equal(result.status, 'partial');
+  assert.ok(result.errors.includes('download: No completed latency probes during this phase'));
+  assert.ok(result.errors.includes('upload: No completed latency probes during this phase'));
+});
+
 test('request timeouts are recorded honestly and cannot leave a run active', async () => {
   const engine = new SpeedTestEngine({ ...testConfig, fetchImpl: () => new Promise(() => {}), requestTimeoutMs: 3 });
   const result = await engine.run(testOptions);
   assert.ok(result.latency.idle.every(sample => sample.ms === null && /timed out/.test(sample.error)));
   assert.equal(result.status, 'failed');
   assert.equal(engine.isRunning, false);
+});
+
+test('a continuously progressing slow download outlives the inactivity timeout', async () => {
+  let timer;
+  const engine = new SpeedTestEngine({
+    requestTimeoutMs: 80,
+    fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) {
+        let chunks = 0;
+        timer = setInterval(() => {
+          controller.enqueue(new Uint8Array(10));
+          if (++chunks === 10) { clearInterval(timer); controller.close(); }
+        }, 20);
+      },
+      cancel() { clearInterval(timer); },
+    })),
+  });
+  const sizes = [];
+  const received = await engine._request({}, 'download', {
+    bytes: 100, signal: new AbortController().signal, onChunk: size => sizes.push(size),
+  });
+  assert.equal(received, 100, 'all real payload bytes arrive over a 200ms request');
+  assert.equal(sizes.reduce((total, size) => total + size, 0), 100);
+});
+
+test('a stalled download still times out and cancels its reader after initial progress', async () => {
+  let cancelled = false;
+  const engine = new SpeedTestEngine({
+    requestTimeoutMs: 20,
+    fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) { controller.enqueue(new Uint8Array(10)); },
+      cancel() { cancelled = true; },
+    })),
+  });
+  await assert.rejects(engine._request({}, 'download', {
+    bytes: 100, signal: new AbortController().signal,
+  }), /Request timed out/);
+  assert.equal(cancelled, true);
+});
+
+test('continuous download progress cannot extend the hard phase deadline', async () => {
+  let cancelled = false;
+  let timer;
+  const engine = new SpeedTestEngine({
+    ...testConfig, requestTimeoutMs: 30,
+    fetchImpl: async (url, init) => {
+      if (init.method === 'POST') return new Response('{}');
+      if (Number(new URL(url).searchParams.get('bytes')) === 0) return new Response();
+      return new Response(new ReadableStream({
+        start(controller) { timer = setInterval(() => controller.enqueue(new Uint8Array(1)), 5); },
+        cancel() { clearInterval(timer); cancelled = true; },
+      }));
+    },
+  });
+  const result = await engine.run({ ...testOptions, budgetBytes: 1_000 });
+  assert.equal(cancelled, true, 'the phase cutoff cancels a stream that still produces bytes');
+  assert.equal(engine.isRunning, false);
+  assert.ok(result.download.bytes > 0 && result.download.bytes < 100);
+  assert.ok(result.download.mbps > 0);
+  assert.deepEqual(result.download.errors, []);
+});
+
+test('slow upload acknowledgements reduce request size without crediting timed-out bodies', async () => {
+  const attempts = [];
+  let acknowledged = 0;
+  const engine = new SpeedTestEngine({
+    ...testConfig, durationScale: 0.1, requestTimeoutMs: 70,
+    initialUploadBytes: undefined, maxUploadBytes: 16 * 1024,
+    fetchImpl: async (url, init) => {
+      if (init.method !== 'POST') {
+        await wait(2);
+        return new Response(new Uint8Array(Number(new URL(url).searchParams.get('bytes'))));
+      }
+      const bytes = init.body.byteLength;
+      attempts.push(bytes);
+      return new Promise((resolve, reject) => {
+        const abort = () => {
+          clearTimeout(timer);
+          reject(new DOMException('Aborted', 'AbortError'));
+        };
+        // This simulated uplink needs 128ms for 16KiB, but only 32ms for 4KiB.
+        const timer = setTimeout(() => {
+          init.signal.removeEventListener('abort', abort);
+          acknowledged += bytes;
+          resolve(new Response('{}'));
+        }, bytes / 128);
+        init.signal.addEventListener('abort', abort, { once: true });
+      });
+    },
+  });
+  const result = await engine.run(testOptions);
+  assert.ok(acknowledged > 0, 'the slower link produces actual successful acknowledgements');
+  assert.equal(attempts[0], 16 * 1024, 'the initial upload is small enough for mobile uplinks');
+  assert.ok(attempts.includes(4 * 1024), 'a timed-out upload retries with a smaller body');
+  assert.equal(result.upload.bytes, acknowledged);
+  assert.ok(result.upload.mbps > 0);
+  assert.equal(result.status, 'partial', 'the timeout remains visible rather than being hidden');
+  assert.ok(result.upload.errors.some(error => error.includes('timed out')));
 });
 
 test('invalid browser API receivers are not mislabeled as network or CORS failures', async () => {

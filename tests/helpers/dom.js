@@ -101,6 +101,7 @@ class Element extends EventTarget {
     visit(this); return result;
   }
   focus() { this.owner.activeElement = this; }
+  select() { this.owner.selectedElement = this; }
   click() {
     if (this.disabled) return Promise.resolve();
     if (this.tagName === 'A') this.owner.downloads.push({href:this.href, download:this.download});
