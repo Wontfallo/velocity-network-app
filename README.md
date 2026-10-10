@@ -102,6 +102,7 @@ and your public IP. Endpoint availability, policy, or CORS support can change.
 npm run check
 npm test
 npm run build
+npm run test:browser # requires Chrome/Chromium; CHROME_BIN may name its executable
 ```
 
 Source is in `src/`; `scripts/build.mjs` creates `dist/Velocity.html` without
@@ -118,10 +119,17 @@ For final real-browser validation, serve the app and check:
 4. Stop during idle, download, upload, and monitoring; no later phases should start.
 5. Check mobile layout, keyboard focus, labels, CSV, and denied storage/network.
 
-The implementation environment could run automated tests but could not finish
-real-browser/live-endpoint verification: the local browser download was denied,
-and the cloud browser could not reach the development server. These checks must
-not be represented as a successful live Internet speed measurement.
+GitHub Actions also runs a dependency-free real Chrome regression check. It
+exercises native `Window.fetch` with its required global receiver, then runs the
+standalone UI through idle, download, and upload against controlled local HTTP
+responses. Only the test fixture replaces the endpoint origin; production uses
+Cloudflare. These checks exercise browser behavior, not Internet speed accuracy.
+The restricted development environment cannot verify the live external endpoint.
+
+Version 3.0.1 fixes a browser-only `Illegal invocation` error caused by calling
+an unbound native `fetch` as an engine method. Both source and standalone builds
+now bind it to the browser global; receiver-sensitive and real Chrome tests
+cover the regression.
 
 ## References
 

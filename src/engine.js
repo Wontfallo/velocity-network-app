@@ -102,7 +102,9 @@ export class SpeedTestEngine {
   } = {}) {
     if (typeof fetchImpl !== 'function') throw new TypeError('Fetch is unavailable in this browser');
     this.onEvent = onEvent;
-    this.fetch = fetchImpl;
+    // Window.fetch requires its Window receiver. Copying it onto this instance
+    // and calling this.fetch(...) otherwise throws "Illegal invocation".
+    this.fetch = fetchImpl.bind(globalThis);
     this.now = now;
     this.config = {
       durationScale, idleProbeCount, idleProbeGapMs, requestTimeoutMs, latencyTimeoutMs,

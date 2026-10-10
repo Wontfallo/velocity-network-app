@@ -462,7 +462,9 @@ class SpeedTestEngine {
   } = {}) {
     if (typeof fetchImpl !== 'function') throw new TypeError('Fetch is unavailable in this browser');
     this.onEvent = onEvent;
-    this.fetch = fetchImpl;
+    // Window.fetch requires its Window receiver. Copying it onto this instance
+    // and calling this.fetch(...) otherwise throws "Illegal invocation".
+    this.fetch = fetchImpl.bind(globalThis);
     this.now = now;
     this.config = {
       durationScale, idleProbeCount, idleProbeGapMs, requestTimeoutMs, latencyTimeoutMs,
@@ -1149,7 +1151,7 @@ window.addEventListener('online',()=>log('Browser reports connectivity restored.
 window.addEventListener('resize',()=>{for(const [id,{series,options}] of plots)plot(id,series,options);});
 window.addEventListener('storage',()=>{if(!busy){history=store.load();renderHistory();}});
 controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
-log('Velocity 3.0 ready. No measurements or external requests until you start a test.');
+log('Velocity 3.0.1 ready. No measurements or external requests until you start a test.');
 
 return {};
 })();

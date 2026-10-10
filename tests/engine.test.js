@@ -23,6 +23,41 @@ function goodFetch(calls = [], delayMs = 2) {
   };
 }
 
+test('default browser fetch keeps the global receiver through speed and monitor requests', async t => {
+  const calls = [];
+  const respond = goodFetch(calls, 1);
+  // Native Window.fetch rejects an unrelated receiver. Arrow-function mocks
+  // cannot reveal the bug caused by copying it onto the engine instance.
+  t.mock.method(globalThis, 'fetch', function (url, init) {
+    if (this !== globalThis) {
+      throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+    }
+    return respond(url, init);
+  });
+  const engine = new SpeedTestEngine({ ...testConfig });
+  const speed = await engine.run(testOptions);
+  assert.equal(speed.status, 'completed');
+  assert.ok(speed.download.bytes > 0);
+  assert.ok(speed.upload.bytes > 0);
+  assert.deepEqual(speed.errors, []);
+  const monitor = await new SpeedTestEngine({ ...testConfig, durationScale: 0.0002 })
+    .monitor({ ...testOptions, monitorMinutes: 5, probeIntervalMs: 3 });
+  assert.equal(monitor.status, 'completed');
+  assert.ok(monitor.latency.monitor.length > 0);
+  assert.deepEqual(monitor.errors, []);
+});
+
+test('an explicitly supplied browser fetch also keeps its required global receiver', async () => {
+  const respond = goodFetch([], 1);
+  function browserFetch(url, init) {
+    if (this !== globalThis) throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+    return respond(url, init);
+  }
+  const result = await new SpeedTestEngine({ ...testConfig, fetchImpl: browserFetch }).run(testOptions);
+  assert.equal(result.status, 'completed');
+  assert.deepEqual(result.errors, []);
+});
+
 test('measures actual payload and chronological idle and loaded probes in both directions', async () => {
   const calls = [], events = [];
   const engine = new SpeedTestEngine({ ...testConfig, fetchImpl: goodFetch(calls), onEvent: event => events.push(event) });

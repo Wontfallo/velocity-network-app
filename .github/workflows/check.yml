@@ -15,4 +15,6 @@ jobs:
       - run: npm run check
       - run: npm run build
       - run: npm test
+      - name: Native browser fetch and standalone app smoke test
+        run: node scripts/browser-smoke.mjs
       - run: git diff --exit-code -- dist/Velocity.html

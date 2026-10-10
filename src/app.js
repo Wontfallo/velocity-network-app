@@ -338,4 +338,4 @@ window.addEventListener('online',()=>log('Browser reports connectivity restored.
 window.addEventListener('resize',()=>{for(const [id,{series,options}] of plots)plot(id,series,options);});
 window.addEventListener('storage',()=>{if(!busy){history=store.load();renderHistory();}});
 controls();renderHistory();clearReadings();gauge(0,'Mbps','READY','Choose a test to begin');
-log('Velocity 3.0 ready. No measurements or external requests until you start a test.');
+log('Velocity 3.0.1 ready. No measurements or external requests until you start a test.');
